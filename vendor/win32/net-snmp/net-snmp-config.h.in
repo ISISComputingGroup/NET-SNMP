@@ -1421,7 +1421,7 @@
 #define HAVE_AES_CFB128_ENCRYPT 1
 
 /* Define to 1 if you have the `ASN1_STRING_get0_data' function. */
-#define HAVE_ASN1_STRING_GET0_DATA 1
+#undef HAVE_ASN1_STRING_GET0_DATA
 
 /* Define to 1 if you have the `DH_get0_key' function. */
 #define HAVE_DH_GET0_KEY 1
@@ -1436,13 +1436,13 @@
 #define HAVE_DTLSV1_METHOD 1
 
 /* Define to 1 if you have the `DTLS_method' function. */
-#define HAVE_DTLS_METHOD 1
+#define HAVE_DTLS_METHOD   1
 
 /* Define to 1 if you have the `EVP_MD_CTX_free' function. */
-#define HAVE_EVP_MD_CTX_FREE 1
+#undef HAVE_EVP_MD_CTX_FREE
 
 /* Define to 1 if you have the `EVP_MD_CTX_new' function. */
-#define HAVE_EVP_MD_CTX_NEW 1
+#undef HAVE_EVP_MD_CTX_NEW
 
 /* Define to 1 if you have the `EVP_MD_CTX_create' function. */
 #define HAVE_EVP_MD_CTX_CREATE 1
@@ -1460,7 +1460,7 @@
 #define HAVE_TLSV1_METHOD 1
 
 /* Define to 1 if you have the `TLS_method' function. */
-#define HAVE_TLS_METHOD 1
+#undef HAVE_TLS_METHOD
 
 /* Define to 1 if you have the `X509_get_signature_nid' function. */
 #define HAVE_X509_GET_SIGNATURE_NID 1
@@ -1774,6 +1774,7 @@ enum {
 #    ifdef _DLL
 #      ifdef _DEBUG
 #        ifdef OPENSSL_BEFORE_1_1_0
+#          pragma comment(lib, "ssleay32MDd.lib")
 #          pragma comment(lib, "libeay32MDd.lib")
 #        else
 #          ifdef _M_X64

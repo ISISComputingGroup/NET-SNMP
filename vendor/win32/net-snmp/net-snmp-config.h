@@ -26,7 +26,7 @@
  * See the PACKAGE_VERSION variable in Unix /configure script
 */
 #ifndef PACKAGE_VERSION
-#define PACKAGE_VERSION "unknown"
+#define PACKAGE_VERSION "5.9"
 #endif
 
 /* Define HAVE_WIN32_PLATFORM_SDK if you have:
@@ -38,7 +38,7 @@
 
 /* Define NETSNMP_ENABLE_IPV6 to enable IPv6.  IPv6 is only available on
  * Windows XP and higher.  */
-/* #undef NETSNMP_ENABLE_IPV6 */
+#define NETSNMP_ENABLE_IPV6 1
 
 /* Only use Windows API functions available on Windows 2000 SP4 or later.  
  * We need at least SP1 for some IPv6 defines in ws2ipdef.h
@@ -51,7 +51,7 @@
 #endif
 #endif
 
-#define INSTALL_BASE "c:/usr"
+#define INSTALL_BASE "C:/Instrument/Apps/EPICS2/support/NET-SNMP/master/install"
 
 /* config.h:  a general config file */
 
@@ -243,7 +243,7 @@
 /* #undef NETSNMP_DISABLE_SNMPV2C */
 
 /* Define if AES-192/AES-256 encryption should be supported */
-/* #undef NETSNMP_DRAFT_BLUMENTHAL_AES_04 */
+#define NETSNMP_DRAFT_BLUMENTHAL_AES_04 1
 
 /* Define to 1 if you have the `AES_cfb128_encrypt' function. */
 /* #undef HAVE_AES_CFB128_ENCRYPT */
@@ -1392,7 +1392,7 @@
 #endif
 
 /* If you have openssl 0.9.7 or above, you likely have AES support. */
-/* #undef NETSNMP_USE_OPENSSL */
+#define NETSNMP_USE_OPENSSL 1
 
 #ifdef NETSNMP_USE_OPENSSL
 
@@ -1421,7 +1421,7 @@
 #define HAVE_AES_CFB128_ENCRYPT 1
 
 /* Define to 1 if you have the `ASN1_STRING_get0_data' function. */
-#define HAVE_ASN1_STRING_GET0_DATA 1
+#undef HAVE_ASN1_STRING_GET0_DATA
 
 /* Define to 1 if you have the `DH_get0_key' function. */
 #define HAVE_DH_GET0_KEY 1
@@ -1436,13 +1436,13 @@
 #define HAVE_DTLSV1_METHOD 1
 
 /* Define to 1 if you have the `DTLS_method' function. */
-#define HAVE_DTLS_METHOD 1
+#define HAVE_DTLS_METHOD   1
 
 /* Define to 1 if you have the `EVP_MD_CTX_free' function. */
-#define HAVE_EVP_MD_CTX_FREE 1
+#undef HAVE_EVP_MD_CTX_FREE
 
 /* Define to 1 if you have the `EVP_MD_CTX_new' function. */
-#define HAVE_EVP_MD_CTX_NEW 1
+#undef HAVE_EVP_MD_CTX_NEW
 
 /* Define to 1 if you have the `EVP_MD_CTX_create' function. */
 #define HAVE_EVP_MD_CTX_CREATE 1
@@ -1460,7 +1460,7 @@
 #define HAVE_TLSV1_METHOD 1
 
 /* Define to 1 if you have the `TLS_method' function. */
-#define HAVE_TLS_METHOD 1
+#undef HAVE_TLS_METHOD
 
 /* Define to 1 if you have the `X509_get_signature_nid' function. */
 #define HAVE_X509_GET_SIGNATURE_NID 1
@@ -1739,7 +1739,7 @@ enum {
 #endif
 
 /* Define NETSNMP_USE_DLL when building or using netsnmp.DLL */
-/* #undef NETSNMP_USE_DLL */
+#define NETSNMP_USE_DLL 1
 
 #if defined(NETSNMP_DLL) && !defined(NETSNMP_USE_DLL)
 #error NETSNMP_USE_DLL must be defined when building libsnmp as a DLL.
@@ -1774,6 +1774,7 @@ enum {
 #    ifdef _DLL
 #      ifdef _DEBUG
 #        ifdef OPENSSL_BEFORE_1_1_0
+#          pragma comment(lib, "ssleay32MDd.lib")
 #          pragma comment(lib, "libeay32MDd.lib")
 #        else
 #          ifdef _M_X64
@@ -1921,7 +1922,7 @@ enum {
 /* #undef USING_SMUX_MODULE */
 
 /* Define if compiling with the winExtDLL module.  */
-/* #undef USING_WINEXTDLL_MODULE */
+#define USING_WINEXTDLL_MODULE 1
 
 /*
  * Module configuration and control ends here.

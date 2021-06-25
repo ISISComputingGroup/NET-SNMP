@@ -178,6 +178,8 @@ foreach my $app (@apps) {
 }
 
 my $perl_define =
+    '/D NETSNMP_ATTRIBUTE_UNUSED="" ' .
+    "/D OPENSSL_BEFORE_1_1_0 " .
     "/D NETSNMP_REMOVE_U64 " .
     "/D VC_EXTRALEAN " .
     "/D WIN32 " .

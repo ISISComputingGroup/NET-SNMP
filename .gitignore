@@ -26,3 +26,4 @@ runIOC.bat
 runIOC.sh
 relPaths.sh
 .project
+/install/
