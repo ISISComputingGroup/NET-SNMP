@@ -42,6 +42,7 @@ EPICS_BASE = C:/Instrument/Apps/EPICS2/base/master
 -include $(TOP)/configure/RELEASE.local
 
 OPENSSL=$(SUPPORT)/OpenSSL/master
+ZLIB=$(SUPPORT)/zlib/master
 
 # optional extra local definitions here
 -include $(TOP)/configure/RELEASE.private
