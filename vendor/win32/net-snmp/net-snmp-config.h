@@ -38,7 +38,7 @@
 
 /* Define NETSNMP_ENABLE_IPV6 to enable IPv6.  IPv6 is only available on
  * Windows XP and higher.  */
-#define NETSNMP_ENABLE_IPV6 1
+/* #undef NETSNMP_ENABLE_IPV6 */
 
 /* Only use Windows API functions available on Windows 2000 SP4 or later.  
  * We need at least SP1 for some IPv6 defines in ws2ipdef.h
@@ -51,7 +51,7 @@
 #endif
 #endif
 
-#define INSTALL_BASE "C:/Instrument/Apps/EPICS2/support/NET-SNMP/master/install"
+#define INSTALL_BASE "C:/Instrument/Apps/EPICS-DEBUG2/support/NET-SNMP/master/install"
 
 /* config.h:  a general config file */
 
@@ -243,7 +243,7 @@
 /* #undef NETSNMP_DISABLE_SNMPV2C */
 
 /* Define if AES-192/AES-256 encryption should be supported */
-#define NETSNMP_DRAFT_BLUMENTHAL_AES_04 1
+/* #undef NETSNMP_DRAFT_BLUMENTHAL_AES_04 */
 
 /* Define to 1 if you have the `AES_cfb128_encrypt' function. */
 /* #undef HAVE_AES_CFB128_ENCRYPT */
@@ -1922,7 +1922,7 @@ enum {
 /* #undef USING_SMUX_MODULE */
 
 /* Define if compiling with the winExtDLL module.  */
-#define USING_WINEXTDLL_MODULE 1
+/* #undef USING_WINEXTDLL_MODULE */
 
 /*
  * Module configuration and control ends here.
