@@ -27,3 +27,4 @@ runIOC.sh
 relPaths.sh
 .project
 /install/
+vendor/win32/net-snmp/net-snmp-config.h

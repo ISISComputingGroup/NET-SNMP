@@ -34,6 +34,10 @@ include $(TOP)/configure/RULES
 # 
 ifdef T_A
 install:
+	-$(MKDIR) $(TOP)/bin/$(EPICS_HOST_ARCH)
+	-$(MKDIR) $(TOP)/lib/$(EPICS_HOST_ARCH)
+	-$(MKDIR) $(TOP)/include
+ifeq ($(findstring linux,$(EPICS_HOST_ARCH)),)
 	( cd $(VENDOR)/win32 && $(PERL) Configure --config=$(VSCONFIG) --with-sdk --prefix=$(abspath $(TOP))/install --linktype=$(LINKTYPE) --with-ssl --with-sslincdir=$(OPENSSL)/include --with-ssllibdir=$(OPENSSL)/lib/$(EPICS_HOST_ARCH) )
 	( cd $(VENDOR)/win32 && nmake apps_clean )
 	( cd $(VENDOR)/win32 && nmake libs_clean )
@@ -41,11 +45,15 @@ install:
 	( cd $(VENDOR)/win32 && nmake apps )
 	( cd $(VENDOR)/win32 && nmake install )
 	( cd $(VENDOR)/win32 && nmake install_devel )
-	-$(MKDIR) $(TOP)/bin/$(EPICS_HOST_ARCH)
-	-$(MKDIR) $(TOP)/lib/$(EPICS_HOST_ARCH)
-	-$(MKDIR) $(TOP)/include
-	$(CP) $(TOP)/install/bin/* $(TOP)/bin/$(EPICS_HOST_ARCH)
 	$(CP) $(TOP)/install/lib/* $(TOP)/lib/$(EPICS_HOST_ARCH)
+else
+	( cd $(VENDOR) && sh ./configure --prefix=$(abspath $(TOP))/install --with-default-snmp-version="3" --with-sys-contact="no@where" --with-sys-location="unknown" --with-logfile="/var/log/snmpd.log" --with-persistent-directory="/var/net-snmp" --disable-manuals --without-perl-modules --disable-embedded-perl )
+	( cd $(VENDOR) && make )
+	( cd $(VENDOR) && make install )
+	$(CP) $(TOP)/install/lib/lib* $(TOP)/lib/$(EPICS_HOST_ARCH)
+endif
+	$(CP) $(TOP)/install/bin/* $(TOP)/bin/$(EPICS_HOST_ARCH)
+
 
 #ifeq ($(OS_CLASS),WIN32)
 #ifeq ($(STATIC_BUILD),YES)
@@ -64,9 +72,13 @@ clean: myclean
 endif
 
 myclean:
+ifeq ($(findstring linux,$(EPICS_HOST_ARCH)),)
 	( cd $(VENDOR)/win32 && nmake apps_clean )
 	( cd $(VENDOR)/win32 && nmake libs_clean )
+else
+	( cd $(VENDOR) && make clean )
+endif
 
-uninstall:
+uninstall::
 	$(RMDIR) $(TOP)/install
 
