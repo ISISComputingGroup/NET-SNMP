@@ -220,9 +220,10 @@ my %makefile_subs = (
                                "/W3 " .
                                "/Zi " .
                                "/nologo " .
-               ($config eq "release" ?
-                "/MD  /D NDEBUG /O2 " :
-                "/MDd /D _DEBUG /Od /Gm ")
+                               ($linktype eq "dynamic" ? "/MD" : "/MT") .
+                               ($config eq "release" ?
+                                   " /D NDEBUG /O2 " :
+                                   "d /D _DEBUG /Od /Gm ")
              ],
     "lfl" => [ "^LDFLAGS=",    "LDFLAGS=" .
                                ($config eq "debug" ? "/debug " : "") .
