@@ -14,6 +14,7 @@ my $config;
 my $sdk = 0;
 my $linktype;
 my $blumenthal_aes;
+my $extra_ldflags;
 my $prefix;
 my $prefixdos;
 my $openssl = 0;
@@ -28,6 +29,7 @@ GetOptions      ('config=s' => \$config,
                  'linktype=s' => \$linktype,
                  'destdir=s' => \$prefix,
                  'enable-blumenthal-aes' => \$blumenthal_aes,
+                 'extra-ldflags=s' => \$extra_ldflags,
                  'prefix=s' => \$prefix,
                  'with-ssl' => \$openssl,
                  'with-sslincdir=s' => \$opensslincdir,
@@ -50,6 +52,7 @@ Options:
     --prefix=\"path\"                  Set INSTALL_BASE path (install path)
     --destdir=\"path\"                 Same as --prefix
     --enable-blumenthal-aes          Enable Blumenthal AES support
+	--extra-ldflags=\"flags\"        Extra link flags, libraries
     --with-ssl                       Link against OpenSSL
     --with-sslincdir=\"path\"          OpenSSL include path
     --with-ssllibdir=\"path\"          OpenSSL library path
@@ -229,7 +232,8 @@ my %makefile_subs = (
                                ($config eq "debug" ? "/debug " : "") .
                                ($openssllibdir ? "/libpath:$openssllibdir" :
                                 "") . " " .
-                               "/MANIFEST:EMBED"
+                               "/MANIFEST:EMBED" . " " .
+							   $extra_ldflags
              ],
     "rsc" => [ "^RSCFLAGS=",   "RSCFLAGS=/l 0x409 " .
                                ($config eq "release" ? "/d NDEBUG" :
@@ -310,6 +314,7 @@ print "  OpenSSL:                    " . ($openssl == 1 ? "enabled" : "disabled"
 print "  Blumenthal AES:             " . ($blumenthal_aes ? "enabled" : "disabled") . "\n";
 print "  IPv6 transport:             " . ($b_ipv6 == 1 ? "enabled" : "disabled") . "\n";
 print "  winExtDLL agent:            " . ($b_winextdll == 1 ? "enabled" : "disabled") . "\n";
+print "  extra LDFLAGS:              $extra_ldflags\n";
 
 if ($ENV{INCLUDE} eq "") {
   print "\n\nVisual Studio environment not detected.  Please run VCVARS32.BAT before\n";

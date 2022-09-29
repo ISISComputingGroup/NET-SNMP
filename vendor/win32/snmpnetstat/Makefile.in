@@ -48,7 +48,7 @@ CLEAN :
 
 RSC=rc.exe
 LINK32=link.exe
-LINK32_FLAGS=netsnmp.lib advapi32.lib ws2_32.lib kernel32.lib user32.lib /nologo /subsystem:console /pdb:"../bin/$(OUTDIR)/$(PROGNAME).pdb" /out:"../bin/$(OUTDIR)/$(PROGNAME).exe" /libpath:"../lib/$(INTDIR)" $(LDFLAGS)
+LINK32_FLAGS=netsnmp.lib advapi32.lib crypt32.lib ws2_32.lib kernel32.lib user32.lib /nologo /subsystem:console /pdb:"../bin/$(OUTDIR)/$(PROGNAME).pdb" /out:"../bin/$(OUTDIR)/$(PROGNAME).exe" /libpath:"../lib/$(INTDIR)" $(LDFLAGS)
 LINK32_OBJS= \
 	"$(INTDIR)\if.obj" \
 	"$(INTDIR)\inet.obj" \
