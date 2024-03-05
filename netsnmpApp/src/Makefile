@@ -46,6 +46,8 @@ ifeq ($(findstring linux,$(EPICS_HOST_ARCH)),)
 	( cd $(VENDOR)/win32 && nmake install )
 	( cd $(VENDOR)/win32 && nmake install_devel )
 	$(CP) $(TOP)/install/lib/* $(TOP)/lib/$(EPICS_HOST_ARCH)
+	-$(CP) $(OPENSSL)/bin/$(EPICS_HOST_ARCH)/*.dll $(TOP)/bin/$(EPICS_HOST_ARCH)
+	-$(CP) $(ZLIB)/bin/$(EPICS_HOST_ARCH)/*.dll $(TOP)/bin/$(EPICS_HOST_ARCH)
 else
 	( cd $(VENDOR) && sh ./configure --prefix=$(abspath $(TOP))/install --with-default-snmp-version="3" --with-sys-contact="no@where" --with-sys-location="unknown" --with-logfile="/var/log/snmpd.log" --with-persistent-directory="/var/net-snmp" --disable-manuals --without-perl-modules --disable-embedded-perl --with-openssl=internal )
 	( cd $(VENDOR) && make )
