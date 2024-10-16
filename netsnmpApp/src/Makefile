@@ -38,7 +38,9 @@ install:
 	-$(MKDIR) $(TOP)/lib/$(EPICS_HOST_ARCH)
 	-$(MKDIR) $(TOP)/include
 ifeq ($(findstring linux,$(EPICS_HOST_ARCH)),)
-	( cd $(VENDOR)/win32 && $(PERL) Configure --config=$(VSCONFIG) --with-sdk --prefix=$(abspath $(TOP))/install --linktype=$(LINKTYPE) --with-ssl --with-sslincdir=$(OPENSSL)/include --with-ssllibdir=$(OPENSSL)/lib/$(EPICS_HOST_ARCH) --extra-ldflags="/libpath:\"$(ZLIB)/lib/$(EPICS_HOST_ARCH)\" zlib.lib" )
+# re-enable ssl after updating net-snmp
+#	( cd $(VENDOR)/win32 && $(PERL) Configure --config=$(VSCONFIG) --with-sdk --prefix=$(abspath $(TOP))/install --linktype=$(LINKTYPE) --with-ssl --with-sslincdir=$(OPENSSL)/include --with-ssllibdir=$(OPENSSL)/lib/$(EPICS_HOST_ARCH) --extra-ldflags="/libpath:\"$(ZLIB)/lib/$(EPICS_HOST_ARCH)\" zlib.lib" )
+	( cd $(VENDOR)/win32 && $(PERL) Configure --config=$(VSCONFIG) --with-sdk --prefix=$(abspath $(TOP))/install --linktype=$(LINKTYPE) --extra-ldflags="/libpath:\"$(ZLIB)/lib/$(EPICS_HOST_ARCH)\" zlib.lib" )
 	( cd $(VENDOR)/win32 && nmake apps_clean )
 	( cd $(VENDOR)/win32 && nmake libs_clean )
 	( cd $(VENDOR)/win32 && nmake libs )
