@@ -77,8 +77,10 @@ endif
 
 myclean:
 ifeq ($(findstring linux,$(EPICS_HOST_ARCH)),)
+ifneq ($(wildcard $(VENDOR)/win32/Makefile),)
 	( cd $(VENDOR)/win32 && nmake apps_clean )
 	( cd $(VENDOR)/win32 && nmake libs_clean )
+endif
 else
 	( cd $(VENDOR) && make clean )
 endif
