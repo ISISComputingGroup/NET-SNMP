@@ -9,10 +9,10 @@
  */
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-features.h>
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
@@ -2975,9 +2975,8 @@ write_mteTriggerEntryStatus(int action,
                 }
                 if (pdu->securityName) {
                     StorageTmp->pdu_securityName =
-                        calloc(1, pdu->securityNameLen + 1);
-                    memcpy(StorageTmp->pdu_securityName, pdu->securityName,
-                           pdu->securityNameLen);
+                        netsnmp_memdup(pdu->securityName,
+                                       pdu->securityNameLen + 1);
                     StorageTmp->pdu_securityNameLen = pdu->securityNameLen;
                 } else {
                     StorageTmp->pdu_securityName = NULL;
@@ -3136,7 +3135,7 @@ mte_get_response(struct mteTriggerTable_data *item, netsnmp_pdu *pdu)
                                       item->mteTriggerContextNameLen);
     pdu->contextNameLen = item->mteTriggerContextNameLen;
     pdu->securityName = netsnmp_memdup(item->pdu_securityName,
-                                       item->pdu_securityNameLen);
+                                       item->pdu_securityNameLen + 1);
     pdu->securityNameLen = item->pdu_securityNameLen;
     DEBUGMSGTL(("mteTriggerTable",
                 "accessing locally with secName \"%s\" community \"%s\"\n",

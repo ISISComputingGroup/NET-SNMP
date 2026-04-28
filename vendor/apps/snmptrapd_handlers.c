@@ -1,31 +1,34 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-features.h>
 
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <stdio.h>
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <ctype.h>
 #include <sys/types.h>
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_SYS_WAIT_H
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
 #endif
 
 #include <net-snmp/config_api.h>
@@ -302,7 +305,7 @@ void
 free_trap1_fmt(void)
 {
     if (print_format1 && print_format1 != trap1_std_str)
-        free((char *) print_format1);
+        free(print_format1);
     print_format1 = NULL;
 }
 
@@ -318,7 +321,7 @@ void
 free_trap2_fmt(void)
 {
     if (print_format2 && print_format2 != trap2_std_str)
-        free((char *) print_format2);
+        free(print_format2);
     print_format2 = NULL;
 }
 
@@ -835,7 +838,7 @@ int   command_handler( netsnmp_pdu           *pdu,
          *  If there's a format string registered for this trap, then use it.
          *  Otherwise use the standard execution format setting.
          */
-        if (handler && handler->format && *handler->format) {
+        if (handler->format && *handler->format) {
             DEBUGMSGTL(( "snmptrapd", "format = '%s'\n", handler->format));
             realloc_format_trap(&rbuf, &r_len, &o_len, 1,
                                              handler->format,
@@ -1112,6 +1115,12 @@ snmp_input(int op, netsnmp_session *session,
 	     */
             if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
                 trapOidLen = pdu->enterprise_length;
+                /*
+                 * Drop packets that would trigger an out-of-bounds trapOid[]
+                 * access.
+                 */
+                if (trapOidLen < 1 || trapOidLen > OID_LENGTH(trapOid) - 2)
+                    return 1;
                 memcpy(trapOid, pdu->enterprise, sizeof(oid) * trapOidLen);
                 if (trapOid[trapOidLen - 1] != 0) {
                     trapOid[trapOidLen++] = 0;
@@ -1120,6 +1129,9 @@ snmp_input(int op, netsnmp_session *session,
             } else {
                 memcpy(trapOid, stdTrapOidRoot, sizeof(stdTrapOidRoot));
                 trapOidLen = OID_LENGTH(stdTrapOidRoot);  /* 9 */
+                /* Drop packets with an invalid trap type. */
+                if (pdu->trap_type == LONG_MAX)
+                    return 1;
                 trapOid[trapOidLen++] = pdu->trap_type+1;
             }
             break;
@@ -1141,6 +1153,8 @@ snmp_input(int op, netsnmp_session *session,
 		 * Let's look through the full list....
 		 */
 		for ( vars = pdu->variables; vars; vars=vars->next_variable) {
+                    if (vars->type != ASN_OBJECT_ID)
+                        continue;
                     if (!snmp_oid_compare(vars->name, vars->name_length,
                                           snmpTrapOid, OID_LENGTH(snmpTrapOid)))
                         break;
@@ -1153,8 +1167,8 @@ snmp_input(int op, netsnmp_session *session,
 		    return 1;		/* ??? */
 		}
 	    }
-            memcpy(trapOid, vars->val.objid, vars->val_len);
-            trapOidLen = vars->val_len /sizeof(oid);
+            trapOidLen = SNMP_MIN(sizeof(trapOid), vars->val_len) / sizeof(oid);
+            memcpy(trapOid, vars->val.objid, trapOidLen * sizeof(oid));
             break;
 
         default:

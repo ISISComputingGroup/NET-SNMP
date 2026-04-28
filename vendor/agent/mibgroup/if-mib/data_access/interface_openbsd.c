@@ -13,7 +13,7 @@ netsnmp_feature_child_of(interface_arch_set_admin_status, interface_all);
 
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 
-#if HAVE_SYS_IOCTL_H
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #else
 #error "linux should have sys/ioctl header"
@@ -143,8 +143,6 @@ netsnmp_arch_interface_container_load(netsnmp_container* container,
 
         entry = netsnmp_access_interface_entry_create(if_name, ifp->ifm_index);
         if(NULL == entry) {
-            netsnmp_access_interface_container_free(container,
-                                                    NETSNMP_ACCESS_INTERFACE_FREE_NOFLAGS);
             free(if_list);
             return -3;
         }

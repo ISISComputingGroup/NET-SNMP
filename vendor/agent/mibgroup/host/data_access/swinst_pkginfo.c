@@ -52,7 +52,7 @@ netsnmp_feature_require(date_n_time);
     *    - reporting hrSWInstalledLast* objects
     *    - detecting when the cached contents are out of date.
     */
-char pkg_directory[SNMP_MAXPATH];
+static char pkg_directory[SNMP_MAXPATH];
 
 /* ---------------------------------------------------------------------
  */
@@ -182,8 +182,8 @@ netsnmp_swinst_arch_load( netsnmp_container *container, u_int flags)
             CONTAINER_INSERT(container, entry);
 
 #ifdef HAVE_PKGINFO
-	    v = pkgparam( dp->d_name, "VERSION" );
-	    c = pkgparam( dp->d_name, "CATEGORY" );
+	    v = pkgparam( dp->d_name, NETSNMP_REMOVE_CONST(char *, "VERSION") );
+	    c = pkgparam( dp->d_name, NETSNMP_REMOVE_CONST(char *, "CATEGORY") );
 
 	    entry->swName_len = snprintf( entry->swName, sizeof(entry->swName),
 					  "%s-%s", dp->d_name, v );

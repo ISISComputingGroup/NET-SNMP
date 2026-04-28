@@ -17,10 +17,10 @@
 #include <net-snmp/net-snmp-features.h>
 
 #include <sys/types.h>
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #ifdef HAVE_NETINET_IN_H
@@ -120,10 +120,8 @@ proxy_parse_config(const char *token, char *line)
         argv[argn] = strdup(buff);
         if (!argv[argn]) {
             config_perror("could not allocate memory for argv[n]");
-            while(argn--)
-                SNMP_FREE(argv[argn]);
             SNMP_FREE(buff);
-            return;
+            goto free_argv;
         }
 	argn++;
     }
@@ -133,6 +131,8 @@ proxy_parse_config(const char *token, char *line)
         DEBUGMSGTL(("proxy_args", "final args: %d = %s\n", arg,
                     argv[arg]));
     }
+
+    memset(&session, 0, sizeof(session));
 
     DEBUGMSGTL(("proxy_config", "parsing args: %d\n", argn));
     /* Call special parse_args that allows for no specified community string */
@@ -146,19 +146,13 @@ proxy_parse_config(const char *token, char *line)
     
     if (arg < 0) {
         config_perror("failed to parse proxy args");
-        /* Free the memory allocated */
-        while(argn--)
-            SNMP_FREE(argv[argn]);
-        return;
+        goto cleanup_session;
     }
     DEBUGMSGTL(("proxy_config", "done parsing args\n"));
 
     if (arg >= argn) {
         config_perror("missing base oid");
-        /* Free the memory allocated */
-        while(argn--)
-            SNMP_FREE(argv[argn]);   
-        return;
+        goto cleanup_session;
     }
 
     /*
@@ -173,6 +167,7 @@ proxy_parse_config(const char *token, char *line)
      * so this isn't needed. 
      */
     ss = snmp_open(&session);
+    SNMP_FREE(session.community);
     /*
      * usm_set_reportErrorOnUnknownID(1); 
      */
@@ -181,10 +176,7 @@ proxy_parse_config(const char *token, char *line)
          * diagnose snmp_open errors with the input netsnmp_session pointer 
          */
         snmp_sess_perror("snmpget", &session);
-        /* Free the memory allocated */
-        while(argn--)
-            SNMP_FREE(argv[argn]);
-        return;
+        goto cleanup_session;
     }
 
     newp = (struct simple_proxy *) calloc(1, sizeof(struct simple_proxy));
@@ -197,9 +189,7 @@ proxy_parse_config(const char *token, char *line)
         config_perror("illegal proxy oid specified\n");
         /*deallocate the memory previously allocated*/
         SNMP_FREE(newp);
-        while(argn--)
-            SNMP_FREE(argv[argn]);
-        return;
+        goto cleanup_session;
     }
 
     if (arg < argn) {
@@ -209,10 +199,7 @@ proxy_parse_config(const char *token, char *line)
             snmp_perror("proxy");
             config_perror("illegal variable name specified (base oid)\n");
             SNMP_FREE(newp);
-            /* Free the memory allocated */
-            while(argn--)
-                SNMP_FREE(argv[argn]);
-            return;
+            goto cleanup_session;
         }
     }
     if ( context_string )
@@ -259,6 +246,11 @@ proxy_parse_config(const char *token, char *line)
         reg->contextName = strdup(context_string);
 
     netsnmp_register_handler(reg);
+
+cleanup_session:
+    netsnmp_cleanup_session(&session);
+
+free_argv:
     /* Free the memory allocated */
     while(argn--)
         SNMP_FREE(argv[argn]);
@@ -280,7 +272,6 @@ proxy_free_config(void)
         unregister_mib_context(rm->name, rm->name_len,
                                DEFAULT_MIB_PRIORITY, 0, 0,
                                rm->context);
-        SNMP_FREE(rm->variables);
         SNMP_FREE(rm->context);
         snmp_close(rm->sess);
         SNMP_FREE(rm);
@@ -369,7 +360,7 @@ proxy_free_filled_in_session_args(netsnmp_session *session, void **configured)
         session->community_len = 0;
     }
 
-    free((u_char *)(*configured));
+    free(*configured);
     *configured = NULL;
 }
 
@@ -463,7 +454,7 @@ proxy_handler(netsnmp_mib_handler *handler,
         if (sp->base_len &&
             reqinfo->mode == MODE_GETNEXT &&
             (snmp_oid_compare(ourname, ourlength,
-                              sp->base, sp->base_len) < 0)) {
+                              sp->name, sp->name_len) < 0)) {
             DEBUGMSGTL(( "proxy", "request is out of registered range\n"));
             /*
              * Create GETNEXT request with an OID so the

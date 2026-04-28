@@ -20,43 +20,43 @@
 #include <net-snmp/net-snmp-config.h>
 #include <errno.h>
 
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <sys/types.h>
 #include <stdio.h>
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_SYS_SELECT_H
+#ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
 
@@ -202,7 +202,7 @@ netsnmp_parse_args(int argc,
                    int flags)
 {
     int             arg, ret, sp = 0;
-    char           *cp;
+    const char     *cp;
     char           *Apsz = NULL;
     char           *Xpsz = NULL;
     char           *Cpsz = NULL;
@@ -231,8 +231,15 @@ netsnmp_parse_args(int argc,
         DEBUGMSGTL(("snmp_parse_args", " arg %d = %s\n", arg, argv[arg]));
     }
 
+#ifdef __linux__
+    /*
+     * glibc only resets the internal getopt() state if optind is set to zero.
+     */
+    optind = 0;
+#else
     optind = 1;
-    while ((arg = getopt(argc, argv, Opts)) != EOF) {
+#endif
+    while (optind < argc && (arg = getopt(argc, argv, Opts)) != EOF) {
         DEBUGMSGTL(("snmp_parse_args", "handling (#%d): %c (optarg %s) (sp %d)\n",
                     optind, arg, optarg, sp));
         switch (arg) {
@@ -330,6 +337,7 @@ netsnmp_parse_args(int argc,
             break;
 
         case 's':
+            free(session->localname);
             session->localname = strdup(optarg);
             break;
 
@@ -392,7 +400,6 @@ netsnmp_parse_args(int argc,
                 }
 
                 session->transport_configuration->compare =
-                    (netsnmp_container_compare*)
                     netsnmp_transport_config_compare;
             }
 
@@ -478,6 +485,7 @@ netsnmp_parse_args(int argc,
 #endif                          /* SNMPV3_CMD_OPTIONS */
 
         case '?':
+        case ':':
             ret = NETSNMP_PARSE_ARGS_ERROR_USAGE;
             goto out;
 
@@ -626,12 +634,12 @@ netsnmp_parse_args(int argc,
     /*
      * get the hostname 
      */
-    if (optind == argc) {
+    if (optind >= argc) {
         fprintf(stderr, "No hostname specified.\n");
         ret = NETSNMP_PARSE_ARGS_ERROR_USAGE;
         goto out;
     }
-    session->peername = argv[optind++]; /* hostname */
+    session->peername = strdup(argv[optind++]); /* hostname */
 
 #if !defined(NETSNMP_DISABLE_SNMPV1) || !defined(NETSNMP_DISABLE_SNMPV2C)
     /*

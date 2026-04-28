@@ -18,26 +18,30 @@
 #ifndef HAVE_PRIORITYNAMES
 #include <errno.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <sys/types.h>
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #include <stdarg.h>
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
 #ifdef HAVE_PRIORITYNAMES
-#include <sys/syslog.h>
+ #if defined( HAVE_SYSLOG_H )
+  #include <syslog.h>
+ #elif defined ( HAVE_SYS_SYSLOG_H )
+  #include <sys/syslog.h>
+ #endif
 #endif
 
 #include <net-snmp/types.h>
@@ -147,7 +151,7 @@ netsnmp_get_debug_log_level(void)
 static void
 debug_config_debug_log_level(const char *configtoken, char *line)
 {
-#if !HAVE_PRIORITYNAMES
+#ifndef HAVE_PRIORITYNAMES
     static const struct strval_s {
         const char *c_name;
         int         c_val;
@@ -680,9 +684,25 @@ snmp_debug_shutdown(void)
 
 #endif /* NETSNMP_NO_DEBUGGING */
 
+#ifdef HAVE_WOLFSSL_WOLFCRYPT_LOGGING_H
+#include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/logging.h>
+
+static void snmp_log_wolfssl_msg(const int logLevel NETSNMP_ATTRIBUTE_UNUSED,
+                                 const char* const msg)
+{
+    DEBUGMSGTL(("snmp_openssl", msg, "\n"));
+}
+#endif
+
 void
 snmp_debug_init(void)
 {
+#ifdef HAVE_WOLFSSL_WOLFCRYPT_LOGGING_H
+    wolfSSL_Debugging_ON();
+    wolfSSL_SetLoggingCb(snmp_log_wolfssl_msg);
+#endif
+
     register_prenetsnmp_mib_handler("snmp", "doDebugging",
                                     debug_config_turn_on_debugging, NULL,
                                     "(1|0)");

@@ -18,34 +18,34 @@ netsnmp_feature_require(cert_util);
 #include <ctype.h>
 #include <errno.h>
 
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_SYS_UIO_H
+#ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
 
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
 
@@ -719,7 +719,7 @@ netsnmp_tlstcp_open_client(netsnmp_transport *t)
     }
 
 #ifdef SSL_CTX_set_max_proto_version
-    SSL_CTX_set_max_proto_version(tlsdata->ssl_context, TLS1_VERSION);
+    SSL_CTX_set_max_proto_version(tlsdata->ssl_context, 0);
 #endif
 
     /* RFC5953 Section 5.3.1:  Establishing a Session as a Client
@@ -919,7 +919,7 @@ netsnmp_tlstcp_open_server(netsnmp_transport *t)
     tlsdata->ssl_context = sslctx_server_setup(TLS_method());
 #ifdef SSL_CTX_set_max_proto_version
     if (tlsdata->ssl_context)
-        SSL_CTX_set_max_proto_version(tlsdata->ssl_context, TLS1_VERSION);
+        SSL_CTX_set_max_proto_version(tlsdata->ssl_context, 0);
 #endif
 
     t->sock = BIO_get_fd(tlsdata->accept_bio, NULL);

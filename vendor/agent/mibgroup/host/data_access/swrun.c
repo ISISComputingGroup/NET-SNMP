@@ -17,7 +17,7 @@
 #include "swrun.h"
 #include "swrun_private.h"
 
-#if HAVE_PCRE_H
+#ifdef HAVE_PCRE_H
 #include <pcre.h>
 #endif
 
@@ -39,8 +39,7 @@ static netsnmp_container *swrun_container = NULL;
 /*
  * local static prototypes
  */
-static void _swrun_entry_release(netsnmp_swrun_entry * entry,
-                                            void *unused);
+static void _swrun_entry_release(void* entry, void *unused);
 
 /**
  * initialization
@@ -100,7 +99,7 @@ swrun_max_processes( void )
 #endif /* NETSNMP_FEATURE_REMOVE_SWRUN_MAX_PROCESSES */
 
 #ifndef NETSNMP_FEATURE_REMOVE_SWRUN_COUNT_PROCESSES_BY_REGEX
-#if HAVE_PCRE_H
+#ifdef HAVE_PCRE_H
 int
 swrun_count_processes_by_regex( char *name, netsnmp_regex_ptr regexp )
 {
@@ -291,9 +290,7 @@ netsnmp_swrun_container_free_items(netsnmp_container *container)
     /*
      * free all items.
      */
-    CONTAINER_CLEAR(container,
-                    (netsnmp_container_obj_func*)_swrun_entry_release,
-                    NULL);
+    CONTAINER_CLEAR(container, _swrun_entry_release, NULL);
 }
 
 /**---------------------------------------------------------------------*/
@@ -366,7 +363,7 @@ netsnmp_swrun_entry_free(netsnmp_swrun_entry * entry)
 /**
  */
 static void
-_swrun_entry_release(netsnmp_swrun_entry * entry, void *context)
+_swrun_entry_release(void *entry, void *context)
 {
     netsnmp_swrun_entry_free(entry);
 }

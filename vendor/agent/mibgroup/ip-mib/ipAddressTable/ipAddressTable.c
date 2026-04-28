@@ -53,14 +53,14 @@ _init_ipAddressTable(int majorID, int minorID, void *serverargs,
     netsnmp_access_interface_init();
 
     /*
-     * TODO:300:o: Perform ipAddressTable one-time module initialization.
+     * Since this function is invoked after the configuration has been read
+     * and since the configuration is reread after a SIGHUP, call the shutdown
+     * function before calling the initialization function.
      */
-
-    /*
-     * here we initialize all the tables we're planning on supporting
-     */
-    if (should_init("ipAddressTable"))
+    if (should_init("ipAddressTable")) {
+        shutdown_table_ipAddressTable();
         initialize_table_ipAddressTable();
+    }
 
     return 0;
 }
@@ -1332,7 +1332,7 @@ ipAddressTable_commit(ipAddressTable_rowreq_ctx * rowreq_ctx)
     }
 
     /*
-     * if we successfully commited this row, set the dirty flag.
+     * if we successfully committed this row, set the dirty flag.
      */
     if (MFD_SUCCESS == rc) {
         rowreq_ctx->rowreq_flags |= MFD_ROW_DIRTY;
@@ -1399,7 +1399,7 @@ ipAddressTable_undo_commit(ipAddressTable_rowreq_ctx * rowreq_ctx)
     }
 
     /*
-     * if we successfully un-commited this row, clear the dirty flag.
+     * if we successfully un-committed this row, clear the dirty flag.
      */
     if (MFD_SUCCESS == rc) {
         rowreq_ctx->rowreq_flags &= ~MFD_ROW_DIRTY;

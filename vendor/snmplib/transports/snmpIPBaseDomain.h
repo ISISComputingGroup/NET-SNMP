@@ -2,7 +2,7 @@
 #define _SNMPIPBASEDOMAIN_H_
 
 #include <net-snmp/types.h>
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 
@@ -30,12 +30,16 @@ struct netsnmp_ep {
  *   means "bind to any port".
  */
 struct netsnmp_ep_str {
-    char     addr[64];
+    char     *addr;
     char     iface[16];
     char     port[6];
 };
 
+struct netsnmp_transport_s;
+
 int netsnmp_parse_ep_str(struct netsnmp_ep_str *ep_str, const char *endpoint);
 int netsnmp_bindtodevice(int fd, const char *iface);
+int netsnmp_ipbase_session_init(struct netsnmp_transport_s *transport,
+                                struct snmp_session *sess);
 
 #endif /* _SNMPIPBASEDOMAIN_H_ */

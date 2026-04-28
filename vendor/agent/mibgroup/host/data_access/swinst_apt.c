@@ -31,9 +31,9 @@
 #include <net-snmp/data_access/swinst.h>
 #include "swinst_private.h"
 
-config_require(date_n_time)
+config_require(date_n_time);
 
-char pkg_directory[SNMP_MAXBUF];
+static char pkg_directory[SNMP_MAXBUF];
 static char apt_fmt[SNMP_MAXBUF];
 static char file[SNMP_MAXBUF];
 
