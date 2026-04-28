@@ -166,6 +166,7 @@ typedef struct request_list {
 
 #define SNMP_DETAIL_SIZE        512
 
+#define SNMP_FLAGS_SESSION_USER    0x1000
 #define SNMP_FLAGS_UDP_BROADCAST   0x800
 #define SNMP_FLAGS_RESP_CALLBACK   0x400      /* Additional callback on response */
 #define SNMP_FLAGS_USER_CREATED    0x200      /* USM user has been created */
@@ -507,17 +508,6 @@ struct netsnmp_transport_s;
                                                   size_t *, size_t *),
                                   int (*fcheck) (u_char *, size_t));
 
-    /*
-     * provided for backwards compatability.  Don't use these functions.
-     * See snmp_debug.h and snmp_debug.c instead.
-     */
-
-    NETSNMP_IMPORT
-    void            snmp_set_do_debugging(int);
-    NETSNMP_IMPORT
-    int             snmp_get_do_debugging(void);
-
-
     NETSNMP_IMPORT
     void            netsnmp_sess_log_error(int priority,
                                            const char *prog_string,
@@ -557,6 +547,9 @@ struct netsnmp_transport_s;
      * JBPN
      * 
      */
+
+    NETSNMP_IMPORT
+    void netsnmp_cleanup_session(netsnmp_session *s);
 
     NETSNMP_IMPORT
     void           *snmp_sess_add_ex(netsnmp_session *,

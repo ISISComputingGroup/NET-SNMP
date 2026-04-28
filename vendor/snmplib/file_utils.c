@@ -2,18 +2,18 @@
 #include <net-snmp/net-snmp-features.h>
 #include <net-snmp/net-snmp-includes.h>
 
-#if HAVE_IO_H
+#ifdef HAVE_IO_H
 #include <io.h>
 #endif
 #include <stdio.h>
 #include <ctype.h>
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #   include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #   include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #   include <string.h>
 #else
 #  include <strings.h>
@@ -21,7 +21,7 @@
 
 #include <sys/types.h>
 
-#if HAVE_SYS_PARAM_H
+#ifdef HAVE_SYS_PARAM_H
 #   include <sys/param.h>
 #endif
 #ifdef HAVE_SYS_STAT_H
@@ -244,14 +244,16 @@ netsnmp_file_close(netsnmp_file * filei)
 #endif /* NETSNMP_FEATURE_REMOVE_FILE_CLOSE */
 
 void
-netsnmp_file_container_free(netsnmp_file *file, void *context)
+netsnmp_file_container_free(void *file, void *context)
 {
     netsnmp_file_release(file);
 }
 
 int
-netsnmp_file_compare_name(netsnmp_file *lhs, netsnmp_file *rhs)
+netsnmp_file_compare_name(const void *p, const void *q)
 {
+    const netsnmp_file *lhs = p, *rhs = q;
+
     netsnmp_assert((NULL != lhs) && (NULL != rhs));
     netsnmp_assert((NULL != lhs->name) && (NULL != rhs->name));
 

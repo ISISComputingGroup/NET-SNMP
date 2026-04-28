@@ -1023,7 +1023,7 @@ _mfd_inetNetToMediaTable_get_values(netsnmp_mib_handler *handler,
 
         /*
          * if the buffer wasn't used previously for the old data (i.e. it
-         * was allcoated memory)  and the get routine replaced the pointer,
+         * was allocated memory)  and the get routine replaced the pointer,
          * we need to free the previous pointer.
          */
         if (old_string && (old_string != requests->requestvb->buf) &&
@@ -1101,10 +1101,8 @@ _inetNetToMediaTable_check_indexes(inetNetToMediaTable_rowreq_ctx *
     /*
      * check defined range(s). 
      */
-    if ((SNMPERR_SUCCESS == rc)
-        && ((rowreq_ctx->tbl_idx.inetNetToMediaNetAddress_len < 0)
-            || (rowreq_ctx->tbl_idx.inetNetToMediaNetAddress_len > 255))
-        ) {
+    if (rc == SNMPERR_SUCCESS &&
+        rowreq_ctx->tbl_idx.inetNetToMediaNetAddress_len > 255) {
         rc = SNMP_ERR_WRONGLENGTH;
     }
     if (MFD_SUCCESS != rc)
@@ -1175,9 +1173,7 @@ _inetNetToMediaTable_check_column(inetNetToMediaTable_rowreq_ctx *
         /*
          * check defined range(s). 
          */
-        if ((SNMPERR_SUCCESS == rc)
-            && ((var->val_len < 0) || (var->val_len > 65535))
-            ) {
+        if (rc == SNMPERR_SUCCESS && var->val_len > 65535) {
             rc = SNMP_ERR_WRONGLENGTH;
         }
         if (SNMPERR_SUCCESS != rc) {
@@ -1650,7 +1646,7 @@ _mfd_inetNetToMediaTable_commit(netsnmp_mib_handler *handler,
 
     if (rowreq_ctx->rowreq_flags & MFD_ROW_DIRTY) {
         /*
-         * if we successfully commited this row, set the dirty flag. Use the
+         * if we successfully committed this row, set the dirty flag. Use the
          * current value + 1 (i.e. dirty = # rows changed).
          * this is checked in post_request...
          */
@@ -1903,9 +1899,10 @@ _cache_free(netsnmp_cache * cache, void *magic)
  * @internal
  */
 static void
-_container_item_free(inetNetToMediaTable_rowreq_ctx * rowreq_ctx,
-                     void *context)
+_container_item_free(void *p, void *context)
 {
+    inetNetToMediaTable_rowreq_ctx *rowreq_ctx = p;
+
     DEBUGMSGTL(("internal:inetNetToMediaTable:_container_item_free",
                 "called\n"));
 
@@ -1938,9 +1935,7 @@ _container_free(netsnmp_container *container)
     /*
      * free all items. inefficient, but easy.
      */
-    CONTAINER_CLEAR(container,
-                    (netsnmp_container_obj_func *) _container_item_free,
-                    NULL);
+    CONTAINER_CLEAR(container, _container_item_free, NULL);
 }                               /* _container_free */
 
 /**

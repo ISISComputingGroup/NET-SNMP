@@ -55,11 +55,7 @@ extern          "C" {
 
 /** @def SNMP_FREE(s)
     Frees a pointer only if it is !NULL and sets its value to NULL */
-#define SNMP_FREE(s)    do { if (s) { free((void *)s); s=NULL; } } while(0)
-
-/** @def SNMP_SWIPE_MEM(n, s)
-    Frees pointer n only if it is !NULL, sets n to s and sets s to NULL */
-#define SNMP_SWIPE_MEM(n,s) do { if (n) free((void *)n); n = s; s=NULL; } while(0)
+#define SNMP_FREE(s)    do { if (s) { free(s); s=NULL; } } while(0)
 
     /*
      * XXX Not optimal everywhere. 
@@ -283,8 +279,11 @@ extern          "C" {
     NETSNMP_IMPORT
     int             netsnmp_string_time_to_secs(const char *time_string);
 
+    NETSNMP_IMPORT
+    const char      *netsnmp_gethomedir(void);
+
 #ifdef __cplusplus
 }
 #endif
 #endif                          /* _TOOLS_H */
-/* @} */
+/** @} */

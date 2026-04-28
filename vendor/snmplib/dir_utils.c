@@ -14,26 +14,26 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #   include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #   include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #   include <string.h>
 #else
 #  include <strings.h>
 #endif
 
 #include <sys/types.h>
-#if HAVE_LIMITS_H
+#ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif
-#if HAVE_SYS_STAT_H
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
-#if HAVE_DIRENT_H
+#ifdef HAVE_DIRENT_H
 # include <dirent.h>
 # define NAMLEN(dirent) strlen((dirent)->d_name)
 #else
@@ -93,10 +93,8 @@ netsnmp_directory_container_read_some(netsnmp_container *user_container,
             container = netsnmp_container_find("nsfile_directory_container:"
                                                "binary_array");
             if (container) {
-                container->compare = (netsnmp_container_compare*)
-                    netsnmp_file_compare_name;
-                container->free_item = (netsnmp_container_obj_func *)
-                    netsnmp_file_container_free;
+                container->compare = netsnmp_file_compare_name;
+                container->free_item = netsnmp_file_container_free;
             }
         }
         else

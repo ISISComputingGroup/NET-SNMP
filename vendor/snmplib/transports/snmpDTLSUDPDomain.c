@@ -23,7 +23,7 @@
 netsnmp_feature_require(cert_util);
 netsnmp_feature_require(sockaddr_size);
 
-#include <net-snmp/library/snmpIPBaseDomain.h>
+#include "snmpIPBaseDomain.h"
 #include <net-snmp/library/snmpDTLSUDPDomain.h>
 #include <net-snmp/library/snmpUDPIPv6Domain.h>
 #include <net-snmp/library/snmp_assert.h>
@@ -33,30 +33,30 @@ netsnmp_feature_require(sockaddr_size);
 #include <ctype.h>
 #include <errno.h>
 
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_SYS_UIO_H
+#ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
 
@@ -121,12 +121,14 @@ static bio_cache *biocache = NULL;
 
 static int openssl_addr_index = 0;
 
+#ifdef HAVE_SSL_CTX_SET_COOKIE_GENERATE_CB
 static int netsnmp_dtls_verify_cookie(SSL *ssl,
                                       SECOND_APPVERIFY_COOKIE_CB_ARG_QUALIFIER
                                       unsigned char *cookie,
                                       unsigned int cookie_len);
 static int netsnmp_dtls_gen_cookie(SSL *ssl, unsigned char *cookie,
                                    unsigned int *cookie_len);
+#endif
 
 /* this stores remote connections in a list to search through */
 /* XXX: optimize for searching */
@@ -337,10 +339,12 @@ start_new_cached_connection(netsnmp_transport *t,
             DIEHERE("failed to create the SSL Context");
         }
 
+#ifdef HAVE_SSL_CTX_SET_COOKIE_GENERATE_CB
         /* turn on cookie exchange */
         /* Set DTLS cookie generation and verification callbacks */
         SSL_CTX_set_cookie_generate_cb(ctx, netsnmp_dtls_gen_cookie);
         SSL_CTX_set_cookie_verify_cb(ctx, netsnmp_dtls_verify_cookie);
+#endif
 
         tlsdata->ssl = SSL_new(ctx);
     }
@@ -667,7 +671,7 @@ netsnmp_dtlsudp_recv(netsnmp_transport *t, void *buf, int size,
         if (rc > 0) {
             if (olen > sizeof(*addr_pair))
                 snmp_log(LOG_ERR, "%s: from address length %d > %d\n",
-                         __func__, olen, (int)sizeof(*addr_pair));
+                         NETSNMP_FUNCTION, olen, (int)sizeof(*addr_pair));
             memcpy(addr_pair, opaque, SNMP_MIN(sizeof(*addr_pair), olen));
         }
         SNMP_FREE(opaque);
@@ -1692,6 +1696,7 @@ netsnmp_dtlsudp_ctor(void)
 int cookie_initialized=0;
 unsigned char cookie_secret[NETSNMP_COOKIE_SECRET_LENGTH];
 
+#ifdef HAVE_SSL_CTX_SET_COOKIE_GENERATE_CB
 int netsnmp_dtls_gen_cookie(SSL *ssl, unsigned char *cookie,
                             unsigned int *cookie_len)
 {
@@ -1873,5 +1878,6 @@ int netsnmp_dtls_verify_cookie(SSL *ssl,
 
     return rc;
 }
+#endif /* #ifdef HAVE_SSL_CTX_SET_COOKIE_GENERATE_CB */
 
 #endif /* HAVE_LIBSSL_DTLS */

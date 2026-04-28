@@ -1010,7 +1010,7 @@ _mfd_ipAddressTable_get_values(netsnmp_mib_handler *handler,
 
         /*
          * if the buffer wasn't used previously for the old data (i.e. it
-         * was allcoated memory)  and the get routine replaced the pointer,
+         * was allocated memory)  and the get routine replaced the pointer,
          * we need to free the previous pointer.
          */
         if (old_string && (old_string != requests->requestvb->buf) &&
@@ -1065,10 +1065,7 @@ _ipAddressTable_check_indexes(ipAddressTable_rowreq_ctx * rowreq_ctx)
     /*
      * check defined range(s). 
      */
-    if ((SNMPERR_SUCCESS == rc)
-        && ((rowreq_ctx->tbl_idx.ipAddressAddr_len < 0)
-            || (rowreq_ctx->tbl_idx.ipAddressAddr_len > 255))
-        ) {
+    if (rc == SNMPERR_SUCCESS && rowreq_ctx->tbl_idx.ipAddressAddr_len > 255) {
         rc = SNMP_ERR_WRONGLENGTH;
     }
     if (MFD_SUCCESS != rc)
@@ -1710,7 +1707,7 @@ _mfd_ipAddressTable_commit(netsnmp_mib_handler *handler,
 
     if (rowreq_ctx->rowreq_flags & MFD_ROW_DIRTY) {
         /*
-         * if we successfully commited this row, set the dirty flag. Use the
+         * if we successfully committed this row, set the dirty flag. Use the
          * current value + 1 (i.e. dirty = # rows changed).
          * this is checked in post_request...
          */
@@ -1972,7 +1969,7 @@ _cache_free(netsnmp_cache * cache, void *magic)
  * @internal
  */
 static void
-_container_item_free(ipAddressTable_rowreq_ctx * rowreq_ctx, void *context)
+_container_item_free(void *rowreq_ctx, void *context)
 {
     DEBUGMSGTL(("internal:ipAddressTable:_container_item_free",
                 "called\n"));
@@ -1991,11 +1988,8 @@ _container_free(netsnmp_container *container)
 {
     DEBUGMSGTL(("internal:ipAddressTable:_container_free", "called\n"));
 
-    if (NULL == container) {
-        snmp_log(LOG_ERR,
-                 "invalid container in ipAddressTable_container_free\n");
+    if (!container)
         return;
-    }
 
     /*
      * call user code
@@ -2005,9 +1999,7 @@ _container_free(netsnmp_container *container)
     /*
      * free all items. inefficient, but easy.
      */
-    CONTAINER_CLEAR(container,
-                    (netsnmp_container_obj_func *) _container_item_free,
-                    NULL);
+    CONTAINER_CLEAR(container, _container_item_free, NULL);
 }                               /* _container_free */
 
 /**

@@ -25,34 +25,34 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-features.h>
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #include <net-snmp/utilities.h>
@@ -91,11 +91,6 @@ struct trap_sink {
 };
 
 struct trap_sink *sinks = NULL;
-
-#ifndef NETSNMP_DISABLE_SNMPV1
-static int _v1_sessions = 0;
-#endif /* NETSNMP_DISABLE_SNMPV1 */
-static int _v2_sessions = 0;
 
 const oid       objid_enterprisetrap[] = { NETSNMP_NOTIFICATION_MIB };
 const oid       trap_version_id[] = { NETSNMP_SYSTEM_MIB };
@@ -159,65 +154,6 @@ free_trap_session(struct trap_sink *sp)
     free(sp);
 }
 
-static void
-_trap_version_incr(int version)
-{
-    switch (version) {
-#ifndef NETSNMP_DISABLE_SNMPV1
-        case SNMP_VERSION_1:
-            ++_v1_sessions;
-            break;
-#endif
-#ifndef NETSNMP_DISABLE_SNMPV2C
-        case SNMP_VERSION_2c:
-#endif
-        case SNMP_VERSION_3:
-            ++_v2_sessions;
-            break;
-#ifdef USING_AGENTX_PROTOCOL_MODULE
-        case AGENTX_VERSION_1:
-            /* agentx registers in sinks, no need to count */
-            break;
-#endif
-        default:
-            snmp_log(LOG_ERR, "unknown snmp version %d\n", version);
-    }
-    return;
-}
-
-static void
-_trap_version_decr(int version)
-{
-    switch (version) {
-#ifndef NETSNMP_DISABLE_SNMPV1
-        case SNMP_VERSION_1:
-            if (--_v1_sessions < 0) {
-                snmp_log(LOG_ERR,"v1 session count < 0! fixed.\n");
-                _v1_sessions = 0;
-            }
-            break;
-#endif
-#ifndef NETSNMP_DISABLE_SNMPV2C
-        case SNMP_VERSION_2c:
-#endif
-        case SNMP_VERSION_3:
-            if (--_v2_sessions < 0) {
-                snmp_log(LOG_ERR,"v2 session count < 0! fixed.\n");
-                _v2_sessions = 0;
-            }
-            break;
-#ifdef USING_AGENTX_PROTOCOL_MODULE
-        case AGENTX_VERSION_1:
-            /* agentx registers in sinks, no need to count */
-            break;
-#endif
-        default:
-            snmp_log(LOG_ERR, "unknown snmp version %d\n", version);
-    }
-    return;
-}
-
-
 #ifndef NETSNMP_NO_TRAP_STATS
 static void
 _dump_trap_stats(netsnmp_session *sess)
@@ -247,9 +183,9 @@ _dump_trap_stats(netsnmp_session *sess)
 #endif /* NETSNMP_NO_TRAP_STATS */
 
 int
-netsnmp_add_notification_session(netsnmp_session * ss, int pdutype,
-                                 int confirm, int version, const char *name,
-                                 const char *tag, const char* profile)
+netsnmp_add_closable_notification_session(netsnmp_session *ss, int close_sess, int pdutype,
+                                          int confirm, int version, const char *name,
+                                          const char *tag, const char* profile)
 {
     if (NETSNMP_RUNTIME_PROTOCOL_SKIP(version)) {
         DEBUGMSGTL(("trap", "skipping trap sink (version 0x%02x disabled)\n",
@@ -265,6 +201,7 @@ netsnmp_add_notification_session(netsnmp_session * ss, int pdutype,
         struct agent_add_trap_args args;
         DEBUGMSGTL(("trap", "adding callback trap sink (%p)\n", ss));
         args.ss = ss;
+        args.close_sess = close_sess;
         args.confirm = confirm;
         args.nameData = name;
         args.nameLen = (NULL == name) ? 0 : strlen(name);
@@ -295,9 +232,20 @@ netsnmp_add_notification_session(netsnmp_session * ss, int pdutype,
         sinks = new_sink;
     }
 
-    _trap_version_incr(version);
-
     return 1;
+}
+
+/* This is a wrapper to netsnmp_add_closable_notification_session
+   for backward compatibility
+ */
+int
+netsnmp_add_notification_session(netsnmp_session *ss, int pdutype,
+                                 int confirm, int version, const char *name,
+                                 const char *tag, const char* profile)
+{
+    return netsnmp_add_closable_notification_session(ss, 1, pdutype, confirm,
+                                                     version, name,
+                                                     tag, profile);
 }
 
 /*
@@ -327,11 +275,35 @@ netsnmp_unregister_notification(const char *name, u_char len)
 }
 
 int
+handle_disconnect_packet(int operation, netsnmp_session *session, int reqid,
+                            netsnmp_pdu *pdu, void *magic)
+{
+    if (NETSNMP_CALLBACK_OP_DISCONNECT == operation) {
+        netsnmp_transport *t = snmp_sess_transport(snmp_sess_pointer(session));
+        char *addr_string = NULL;
+
+        if (t && (addr_string = netsnmp_transport_peer_string(t, t->remote, t->remote_length))) {
+            snmp_log(LOG_WARNING,
+                        "send_trap: session closed by snmptrap (%s)\n", addr_string);
+            free(addr_string);
+        } else {
+            snmp_log(LOG_WARNING,
+                        "send_trap: session %8p closed by snmptrap\n", session);
+        }
+        snmp_log(LOG_WARNING,
+                    "send_trap: re-opening of TCP connection is not supported.\n");
+
+        netsnmp_unregister_notification(session->paramName, strlen(session->paramName));
+    }
+    return 1;
+}
+
+int
 add_trap_session(netsnmp_session * ss, int pdutype, int confirm,
                          int version)
 {
-    return netsnmp_add_notification_session(ss, pdutype, confirm, version,
-                                            NULL, NULL, NULL);
+    return netsnmp_add_closable_notification_session(ss, 0, pdutype, confirm, version,
+                                                     NULL, NULL, NULL);
 }
 
 #ifndef NETSNMP_FEATURE_REMOVE_REMOVE_TRAP_SESSION
@@ -348,7 +320,6 @@ remove_trap_session(netsnmp_session * ss)
             } else {
                 sinks = sp->next;
             }
-            _trap_version_decr(ss->version);
             /*
              * I don't believe you *really* want to close the session here;
              * it may still be in use for other purposes.  In particular this
@@ -393,9 +364,10 @@ netsnmp_create_v1v2_notification_session(const char *sink, const char* sinkport,
     }
 
     snmp_sess_init(&session);
+    session.callback = handle_disconnect_packet;
     session.version = version;
     if (com) {
-        session.community = (u_char *) NETSNMP_REMOVE_CONST(char *, com);
+        session.community = (u_char *)strdup(com);
         session.community_len = strlen(com);
     }
 
@@ -424,7 +396,7 @@ netsnmp_create_v1v2_notification_session(const char *sink, const char* sinkport,
             client_addr = "localhost";
         tspec.source = client_addr;
     }
-    session.localname = NETSNMP_REMOVE_CONST(char *,tspec.source);
+    session.localname = tspec.source ? strdup(tspec.source) : NULL;
 
     tspec.application = "snmptrap";
     if (NULL == sinkport)
@@ -441,13 +413,18 @@ netsnmp_create_v1v2_notification_session(const char *sink, const char* sinkport,
         /** diagnose snmp_open errors with the input netsnmp_session pointer */
         snmp_sess_perror("snmpd: netsnmp_create_notification_session",
                          &session);
+        netsnmp_cleanup_session(&session);
         /* transport freed by snmp_add */
         return NULL;
     }
 
-    rc = netsnmp_add_notification_session(sesp, pdutype,
-                                          (pdutype == SNMP_MSG_INFORM),
-                                          version, name, tag, profile);
+    netsnmp_cleanup_session(&session);
+
+    rc = netsnmp_add_closable_notification_session(sesp,
+                                                   !(t->flags & NETSNMP_TRANSPORT_FLAG_STREAM),
+                                                   pdutype,
+                                                   (pdutype == SNMP_MSG_INFORM),
+                                                   version, name, tag, profile);
     if (0 == rc)
         return NULL;
 
@@ -500,7 +477,6 @@ snmpd_free_trapsinks(void)
     DEBUGMSGTL(("trap", "freeing trap sessions\n"));
     while (sp) {
         sinks = sinks->next;
-        _trap_version_decr(sp->version);
         free_trap_session(sp);
         sp = sinks;
     }
@@ -1035,11 +1011,11 @@ netsnmp_send_traps(int trap, int specific,
         }
     }
 #ifndef NETSNMP_DISABLE_SNMPV1
-    if (template_v1pdu && _v1_sessions)
+    if (template_v1pdu)
         snmp_call_callbacks(SNMP_CALLBACK_APPLICATION,
                         SNMPD_CALLBACK_SEND_TRAP1, template_v1pdu);
 #endif
-    if (template_v2pdu && _v2_sessions)
+    if (template_v2pdu)
         snmp_call_callbacks(SNMP_CALLBACK_APPLICATION,
                         SNMPD_CALLBACK_SEND_TRAP2, template_v2pdu);
     snmp_free_pdu(template_v1pdu);
@@ -1632,15 +1608,17 @@ netsnmp_create_v3user_notification_session(const char *dest, const char *user,
 
     snmp_sess_init(&session);
 
+    session.callback = handle_disconnect_packet;
+
     session.version = SNMP_VERSION_3;
 
-    session.peername = NETSNMP_REMOVE_CONST(char*,dest);
+    session.peername = strdup(dest);
 
-    session.securityName = NETSNMP_REMOVE_CONST(char*,user);
+    session.securityName = strdup(user);
     session.securityNameLen = strlen(user);
 
-    if (NULL != context) {
-        session.contextName = NETSNMP_REMOVE_CONST(char*,context);
+    if (context) {
+        session.contextName = strdup(context);
         session.contextNameLen = strlen(context);
     }
 
@@ -1716,20 +1694,20 @@ netsnmp_create_v3user_notification_session(const char *dest, const char *user,
         goto bail;
     }
 
-    if (netsnmp_add_notification_session(ss, pdutype,
-                                         (pdutype == SNMP_MSG_INFORM),
-                                         ss->version, notif_name, notif_tag,
-                                         notif_profile) != 1) {
+    if (netsnmp_add_closable_notification_session(ss,
+                                                  !(transport->flags & NETSNMP_TRANSPORT_FLAG_STREAM),
+                                                  pdutype,
+                                                  (pdutype == SNMP_MSG_INFORM),
+                                                  ss->version, notif_name, notif_tag,
+                                                  notif_profile) != 1) {
         DEBUGMSGTL(("trap:v3user_notif_sess", "add notification failed\n"));
         snmp_close(ss);
-        ss = NULL;
-        goto bail;
+        return NULL;
     }
 
   bail:
     /** free any allocated mem in session */
-    SNMP_FREE(session.securityAuthProto);
-    SNMP_FREE(session.securityPrivProto);
+    netsnmp_cleanup_session(&session);
 
     return ss;
 }
@@ -1822,6 +1800,7 @@ snmpd_parse_config_trapsess(const char *word, char *cptr)
             free(argv[argn - 1]);
         goto cleanup;
     }
+    session.callback = handle_disconnect_packet;
     ss = snmp_add(&session, transport, NULL, NULL);
     for (; argn > 0; argn--)
         free(argv[argn - 1]);
@@ -1853,13 +1832,14 @@ snmpd_parse_config_trapsess(const char *word, char *cptr)
                                 NETSNMP_DS_LIB_DISABLE_V1))
         traptype = SNMP_MSG_TRAP;
 #endif
-    netsnmp_add_notification_session(ss, traptype,
-                                     (traptype == SNMP_MSG_INFORM),
-                                     ss->version, name, tag, profile);
+    netsnmp_add_closable_notification_session(ss,
+                                              !(transport->flags & NETSNMP_TRANSPORT_FLAG_STREAM),
+                                              traptype,
+                                              (traptype == SNMP_MSG_INFORM),
+                                              ss->version, name, tag, profile);
 
   cleanup:
-    if (session.securityEngineIDLen > 0)
-        SNMP_FREE(session.securityEngineID);
+    netsnmp_cleanup_session(&session);
     SNMP_FREE(clientaddr_save);
     SNMP_FREE(profile);
     SNMP_FREE(name);

@@ -8,25 +8,25 @@
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 
@@ -88,7 +88,9 @@ struct agent_netsnmp_set_info {
     struct agent_netsnmp_set_info *next;
 };
 
+#ifndef NETSNMP_NO_WRITE_SUPPORT
 static struct agent_netsnmp_set_info *Sets = NULL;
+#endif
 
 netsnmp_session *agentx_callback_sess = NULL;
 
@@ -241,7 +243,6 @@ free_set_vars(netsnmp_session * ss, netsnmp_pdu *pdu)
         prev = ptr;
     }
 }
-#endif /* !NETSNMP_NO_WRITE_SUPPORT */
 
 static void
 send_agentx_error(netsnmp_session *session, netsnmp_pdu *pdu, int errstat, int errindex)
@@ -262,12 +263,15 @@ send_agentx_error(netsnmp_session *session, netsnmp_pdu *pdu, int errstat, int e
         snmp_free_pdu(pdu);
     }
 }
+#endif /* !NETSNMP_NO_WRITE_SUPPORT */
 
 int
 handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
                      netsnmp_pdu *pdu, void *magic)
 {
+#ifndef NETSNMP_NO_WRITE_SUPPORT
     struct agent_netsnmp_set_info *asi = NULL;
+#endif
     snmp_callback   mycallback;
     netsnmp_pdu    *internal_pdu = NULL;
     void           *retmagic = NULL;
@@ -505,8 +509,10 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
      */
 
     internal_pdu = snmp_clone_pdu(pdu);
-    if (!internal_pdu)
+    if (!internal_pdu) {
+        free(smagic);
         return 1;
+    }
     free(internal_pdu->contextName);
     internal_pdu->contextName = (char *) internal_pdu->community;
     internal_pdu->contextNameLen = internal_pdu->community_len;

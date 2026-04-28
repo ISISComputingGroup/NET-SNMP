@@ -1,8 +1,12 @@
 /* -*- C -*- */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+#pragma GCC diagnostic pop
 
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
@@ -32,7 +36,7 @@ nso_newarrayptr(oid *name, size_t name_len)
     return RETVAL;
 }
 
-static int __sprint_num_objid _((char *, oid *, int));
+static int __snprint_num_objid _((char *, size_t, const oid *, int));
 
 /* stolen from SNMP.xs.  Ug, this needs merging to snmplib */
 /* XXX: this is only here because snmplib forces quotes around the
@@ -96,8 +100,8 @@ __snprint_value(char *buf, size_t buf_len, netsnmp_variable_list *var,
            break;
 
         case ASN_OBJECT_ID:
-          __sprint_num_objid(buf, (oid *)(var->val.objid),
-                             var->val_len/sizeof(oid));
+          __snprint_num_objid(buf, buf_len, var->val.objid,
+                              var->val_len / sizeof(oid));
           len = strlen(buf);
           break;
 
@@ -130,15 +134,18 @@ __snprint_value(char *buf, size_t buf_len, netsnmp_variable_list *var,
 }
 
 static int
-__sprint_num_objid (buf, objid, len)
+__snprint_num_objid (buf, buf_len, objid, len)
 char *buf;
-oid *objid;
+size_t buf_len;
+const oid *objid;
 int len;
 {
+   const char *const end = buf + buf_len;
    int i;
+
    buf[0] = '\0';
    for (i=0; i < len; i++) {
-	sprintf(buf,".%" NETSNMP_PRIo "u",*objid++);
+        snprintf(buf, end - buf, ".%" NETSNMP_PRIo "u", *objid++);
 	buf += strlen(buf);
    }
    return SNMPERR_SUCCESS;
@@ -228,7 +235,7 @@ nsop_to_array(oid1)
         int i;
 
     PPCODE:
-        EXTEND(SP, oid1->len);
+        EXTEND(SP, (int)oid1->len);
         for(i=0; i < (int)oid1->len; i++) {
             PUSHs(sv_2mortal(newSVnv(oid1->name[i])));
         }

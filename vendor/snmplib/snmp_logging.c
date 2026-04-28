@@ -25,45 +25,45 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-features.h>
 #include <stdio.h>
-#if HAVE_MALLOC_H
+#ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <ctype.h>
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#if HAVE_SYSLOG_H
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #ifndef LOG_CONS                /* Interesting Ultrix feature */
 #include <sys/syslog.h>
 #endif
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 
 #include <stdarg.h>
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -111,9 +111,9 @@ netsnmp_feature_want(logging_outputs);
  * logh_head:  A list of all log handlers, in increasing order of priority
  * logh_priorities:  'Indexes' into this list, by priority
  */
-netsnmp_log_handler *logh_head = NULL;
-netsnmp_log_handler *logh_priorities[LOG_DEBUG+1];
-static int  logh_enabled = 0;
+static netsnmp_log_handler *logh_head;
+static netsnmp_log_handler *logh_priorities[LOG_DEBUG+1];
+static int logh_enabled;
 
 #ifndef NETSNMP_FEATURE_REMOVE_LOGGING_SYSLOG
 static char syslogname[64] = DEFAULT_LOG_ID;
@@ -327,7 +327,7 @@ snmp_log_options(char *optarg, int argc, char *const *argv)
 	 */
     char            missing_opt = 'e';	/* old -L is new -Le */
     int             priority = LOG_DEBUG;
-    int             pri_max  = LOG_EMERG;
+    int             pri_max  = LOG_DEBUG;
     int             inc_optind = 0;
     netsnmp_log_handler *logh;
 
@@ -353,7 +353,7 @@ snmp_log_options(char *optarg, int argc, char *const *argv)
      * Finally, handle ".... -Lx value ...." syntax
      *   (*without* surrounding quotes)
      */
-    if ((!*optarg) && (NULL != argv)) {
+    if (!*optarg && argv && optind < argc) {
         /*
          * We've run off the end of the argument
          *  so move on to the next.
@@ -546,9 +546,12 @@ sprintf_stamp(time_t * now, char *sbuf)
         time(now);
     }
     tm = localtime(now);
-    sprintf(sbuf, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d ",
-            tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-            tm->tm_hour, tm->tm_min, tm->tm_sec);
+    if (tm)
+        sprintf(sbuf, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d ",
+                tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                tm->tm_hour, tm->tm_min, tm->tm_sec);
+    else
+        sprintf(sbuf, "(unknown)");
     return sbuf;
 }
 
@@ -953,6 +956,7 @@ netsnmp_add_loghandler( netsnmp_log_handler *logh )
             logh2->prev->next = logh;
         else
             logh_head = logh;
+        logh->prev = logh2->prev;
         logh->next  = logh2;
         logh2->prev = logh;
     } else if (logh_head ) {
@@ -962,6 +966,7 @@ netsnmp_add_loghandler( netsnmp_log_handler *logh )
         for (logh2 = logh_head; logh2->next; logh2 = logh2->next)
             ;
         logh2->next = logh;
+        logh->prev = logh2;
     } else {
         logh_head = logh;
     }
@@ -996,11 +1001,11 @@ netsnmp_register_loghandler( int type, int priority )
 
     logh->type     = type;
     switch ( type ) {
+#ifndef NETSNMP_FEATURE_REMOVE_LOGGING_STDIO
     case NETSNMP_LOGHANDLER_STDOUT:
         logh->imagic  = 1;
         logh->handler = log_handler_stdouterr;
         break;
-#ifndef NETSNMP_FEATURE_REMOVE_LOGGING_STDIO
     case NETSNMP_LOGHANDLER_STDERR:
         logh->handler = log_handler_stdouterr;
         break;
@@ -1327,7 +1332,7 @@ snmp_log_string(int priority, const char *str)
          *     ensure this logging is turned on (see snmp_disable_stderrlog
          *     and its cohorts).
          */
-        if (logh->enabled && (priority >= logh->pri_max))
+        if (logh->enabled && priority <= logh->pri_max)
             logh->handler( logh, priority, str );
     }
 }

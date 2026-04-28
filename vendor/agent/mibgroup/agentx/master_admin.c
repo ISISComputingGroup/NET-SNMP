@@ -13,20 +13,20 @@
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -93,6 +93,7 @@ open_agentx_session(netsnmp_session * session, netsnmp_pdu *pdu)
     sp->contextName = NULL;
     sp->securityEngineID = NULL;
     sp->securityPrivProto = NULL;
+    sp->sessUser = NULL;
 
     /*
      * This next bit utilises unused SNMPv3 fields
@@ -500,6 +501,9 @@ handle_master_agentx_packet(int operation,
         asp = (netsnmp_agent_session *) magic;
     } else {
         asp = init_agent_snmp_session(session, pdu);
+        if (asp == NULL) {
+            return 1;
+        }
     }
 
     DEBUGMSGTL(("agentx/master", "handle pdu (req=0x%lx,trans=0x%lx,sess=0x%lx)\n",

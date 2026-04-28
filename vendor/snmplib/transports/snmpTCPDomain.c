@@ -1,34 +1,34 @@
 #include <net-snmp/net-snmp-config.h>
 
 #include <net-snmp/types.h>
-#include <net-snmp/library/snmpIPBaseDomain.h>
+#include "snmpIPBaseDomain.h"
 #include <net-snmp/library/snmpTCPDomain.h>
 
 #include <stdio.h>
 #include <sys/types.h>
 #include <errno.h>
 
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#if HAVE_FCNTL_H
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
@@ -52,14 +52,6 @@ typedef netsnmp_indexed_addr_pair netsnmp_udp_addr_pair;
 
 oid netsnmp_snmpTCPDomain[] = { TRANSPORT_DOMAIN_TCP_IP };
 static netsnmp_tdomain tcpDomain;
-
-/*
- * Not static since it is needed here as well as in snmpUDPDomain, but not
- * public either
- */
-int
-netsnmp_sockaddr_in2(struct sockaddr_in *addr,
-                     const char *inpeername, const char *default_target);
 
 /*
  * Return a string representing the address in data, or else the "far end"
@@ -296,6 +288,7 @@ netsnmp_tcp_transport(const struct netsnmp_ep *ep, int local)
     t->f_send     = netsnmp_tcpbase_send;
     t->f_close    = netsnmp_socketbase_close;
     t->f_accept   = netsnmp_tcp_accept;
+    t->f_setup_session = netsnmp_ipbase_session_init;
     t->f_fmtaddr  = netsnmp_tcp_fmtaddr;
     t->f_get_taddr = netsnmp_ipv4_get_taddr;
 

@@ -8,9 +8,13 @@
      modify it under the same terms as Perl itself.
 */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+#pragma GCC diagnostic pop
 
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
@@ -106,12 +110,12 @@ static int __translate_asn_type _((int));
 static int __snprint_value _((char *, size_t,
                               netsnmp_variable_list*, struct tree *,
                              int, int));
-static int __sprint_num_objid _((char *, oid *, int));
+static int __snprint_num_objid _((char *, size_t, const oid *, int));
 static int __scan_num_objid _((char *, oid *, size_t *));
 static int __get_type_str _((int, char *));
 static int __get_label_iid _((char *, char **, char **, int));
 static int __oid_cmp _((oid *, size_t, oid *, size_t));
-static int __tp_sprint_num_objid _((char*,SnmpMibNode *));
+static int __tp_sprint_num_objid _((char*, size_t, const SnmpMibNode *));
 static SnmpMibNode * __get_next_mib_node _((SnmpMibNode *));
 static struct tree * __tag2oid _((char *, char *, oid  *, size_t *, int *, int));
 static int __concat_oid_str _((oid *, size_t *, char *));
@@ -423,13 +427,11 @@ int type;
 #define USE_ENUMS 1
 #define USE_SPRINT_VALUE 2
 static int
-__snprint_value (buf, buf_len, var, tp, type, flag)
-char * buf;
-size_t buf_len;
-netsnmp_variable_list * var;
-struct tree * tp;
-int type;
-int flag;
+#if defined(__has_attribute) && __has_attribute(nonnull)
+__attribute__((nonnull(1)))
+#endif
+__snprint_value(char *buf, size_t buf_len, netsnmp_variable_list *var,
+                struct tree *tp, int type, int flag)
 {
    int len = 0;
    u_char* ip;
@@ -487,8 +489,8 @@ int flag;
            break;
 
         case ASN_OBJECT_ID:
-          __sprint_num_objid(buf, (oid *)(var->val.objid),
-                             var->val_len/sizeof(oid));
+          __snprint_num_objid(buf, buf_len, var->val.objid,
+                              var->val_len / sizeof(oid));
           len = strlen(buf);
           break;
 
@@ -543,24 +545,28 @@ int flag;
 }
 
 static int
-__sprint_num_objid (buf, objid, len)
+__snprint_num_objid (buf, buf_len, objid, len)
 char *buf;
-oid *objid;
+size_t buf_len;
+const oid *objid;
 int len;
 {
+   const char* const end = buf + buf_len;
    int i;
+
    buf[0] = '\0';
    for (i=0; i < len; i++) {
-	sprintf(buf,".%" NETSNMP_PRIo "u",*objid++);
+        snprintf(buf, end - buf, ".%" NETSNMP_PRIo "u", *objid++);
 	buf += strlen(buf);
    }
    return SUCCESS;
 }
 
 static int
-__tp_sprint_num_objid (buf, tp)
+__tp_sprint_num_objid (buf, buf_len, tp)
 char *buf;
-SnmpMibNode *tp;
+size_t buf_len;
+const SnmpMibNode *tp;
 {
    oid newname[MAX_OID_LEN], *op;
    /* code taken from get_node in snmp_client.c */
@@ -569,7 +575,7 @@ SnmpMibNode *tp;
       tp = tp->parent;
       if (tp == NULL) break;
    }
-   return __sprint_num_objid(buf, op, newname + MAX_OID_LEN - op);
+   return __snprint_num_objid(buf, buf_len, op, newname + MAX_OID_LEN - op);
 }
 
 static int
@@ -2605,6 +2611,7 @@ snmp_new_v3_session(version, peer, retries, timeout, sec_name, sec_level, sec_en
 	   SnmpSession session = {0};
 	   void *ss = NULL;
            int verbose = SvIV(perl_get_sv("SNMP::verbose", 0x01 | 0x04));
+           int auth_type, priv_type;
 
            snmp_sess_init(&session);
 
@@ -2636,25 +2643,25 @@ snmp_new_v3_session(version, peer, retries, timeout, sec_name, sec_level, sec_en
                              (char **) &session.contextEngineID);
            session.engineBoots = eng_boots;
            session.engineTime = eng_time;
-#ifndef NETSNMP_DISABLE_MD5
-           if (!strcmp(auth_proto, "MD5")) {
-               session.securityAuthProto = 
-                  snmp_duplicate_objid(usmHMACMD5AuthProtocol,
-                                          OID_LENGTH(usmHMACMD5AuthProtocol));
-              session.securityAuthProtoLen = OID_LENGTH(usmHMACMD5AuthProtocol);
-           } else
-#endif
-               if (!strcmp(auth_proto, "SHA")) {
-               session.securityAuthProto = 
-                   snmp_duplicate_objid(usmHMACSHA1AuthProtocol,
-                                        OID_LENGTH(usmHMACSHA1AuthProtocol));
-              session.securityAuthProtoLen = OID_LENGTH(usmHMACSHA1AuthProtocol);
-           } else if (!strcmp(auth_proto, "DEFAULT")) {
+           /* NETSNMP_USMAUTH_* */
+           auth_type = usm_lookup_auth_type(auth_proto);
+           if (auth_type >= 0) {
+               const netsnmp_auth_alg_info *auth_alg_info =
+                   sc_find_auth_alg_bytype(auth_type);
+               if (auth_alg_info) {
+                   session.securityAuthProto = 
+                       snmp_duplicate_objid(auth_alg_info->alg_oid,
+                                            auth_alg_info->oid_len);
+                   session.securityAuthProtoLen = auth_alg_info->oid_len;
+               }
+           }
+           if (strcmp(auth_proto, "DEFAULT") == 0) {
                const oid *theoid =
                    get_default_authtype(&session.securityAuthProtoLen);
                session.securityAuthProto = 
                    snmp_duplicate_objid(theoid, session.securityAuthProtoLen);
-           } else {
+           }
+           if (session.securityAuthProto == NULL) {
               if (verbose)
                  warn("error:snmp_new_v3_session:Unsupported authentication protocol(%s)\n", auth_proto);
               goto end;
@@ -2686,25 +2693,24 @@ snmp_new_v3_session(version, peer, retries, timeout, sec_name, sec_level, sec_en
                    }
                }
            }
-#ifndef NETSNMP_DISABLE_DES
-           if (!strcmp(priv_proto, "DES")) {
-              session.securityPrivProto =
-                  snmp_duplicate_objid(usmDESPrivProtocol,
-                                       OID_LENGTH(usmDESPrivProtocol));
-              session.securityPrivProtoLen = OID_LENGTH(usmDESPrivProtocol);
-           } else
-#endif
-               if (!strncmp(priv_proto, "AES", 3)) {
-              session.securityPrivProto =
-                  snmp_duplicate_objid(usmAESPrivProtocol,
-                                       OID_LENGTH(usmAESPrivProtocol));
-              session.securityPrivProtoLen = OID_LENGTH(usmAESPrivProtocol);
-           } else if (!strcmp(priv_proto, "DEFAULT")) {
+           priv_type = usm_lookup_priv_type(priv_proto);
+           if (priv_type >= 0) {
+               const netsnmp_priv_alg_info *priv_alg_info =
+                   sc_get_priv_alg_bytype(priv_type);
+               if (priv_alg_info) {
+                   session.securityPrivProto =
+                       snmp_duplicate_objid(priv_alg_info->alg_oid,
+                                            priv_alg_info->oid_len);
+                   session.securityPrivProtoLen = priv_alg_info->oid_len;
+               }
+           }
+           if (strcmp(priv_proto, "DEFAULT") == 0) {
                const oid *theoid =
                    get_default_privtype(&session.securityPrivProtoLen);
                session.securityPrivProto = 
                    snmp_duplicate_objid(theoid, session.securityPrivProtoLen);
-           } else {
+           }
+           if (session.securityPrivProto == NULL) {
               if (verbose)
                  warn("error:snmp_new_v3_session:Unsupported privacy protocol(%s)\n", priv_proto);
               goto end;
@@ -2808,7 +2814,6 @@ snmp_new_tunneled_session(version, peer, retries, timeout, sec_name, sec_level, 
                }
 
                session.transport_configuration->compare =
-                   (netsnmp_container_compare*)
                    netsnmp_transport_config_compare;
            }
 
@@ -3016,7 +3021,6 @@ snmp_read_module(module)
         OUTPUT:
         RETVAL
 
-
 void
 snmp_set(sess_ref, varlist_ref, perl_callback)
         SV *	sess_ref
@@ -3024,6 +3028,7 @@ snmp_set(sess_ref, varlist_ref, perl_callback)
         SV *	perl_callback
 	PPCODE:
 	{
+#ifndef NETSNMP_NO_WRITE_SUPPORT
            AV *varlist;
            SV **varbind_ref;
            SV **varbind_val_f;
@@ -3048,7 +3053,6 @@ snmp_set(sess_ref, varlist_ref, perl_callback)
            int use_enums;
            struct enum_list *ep;
            int best_guess;	   
-#ifndef NETSNMP_NO_WRITE_SUPPORT
 
            New (0, oid_arr, MAX_OID_LEN, oid);
 
@@ -3170,11 +3174,11 @@ snmp_set(sess_ref, varlist_ref, perl_callback)
               /* BUG!!! need to return an error value */
               XPUSHs(&sv_undef); /* no mem or bad args */
            }
+done:
+           Safefree(oid_arr);
 #else  /* NETSNMP_NO_WRITE_SUPPORT */
            warn("error: Net-SNMP was compiled using --enable-read-only, set() can not be used.");
 #endif /* NETSNMP_NO_WRITE_SUPPORT */
-done:
-           Safefree(oid_arr);
         }
 
 void
@@ -4821,7 +4825,7 @@ snmp_translate_obj(var,mode,use_long,auto_init,best_guess,include_module_name)
 		if (!__tag2oid(var, NULL, oid_arr, &oid_arr_len, NULL, best_guess)) {
 		   if (verbose) warn("error:snmp_translate_obj:Unknown OID %s\n",var);
                 } else {
-                   status = __sprint_num_objid(str_buf, oid_arr, oid_arr_len);
+                   status = __snprint_num_objid(str_buf, sizeof(str_buf), oid_arr, oid_arr_len);
                 }
                 break;
              case SNMP_XLATE_MODE_OID2TAG:
@@ -5191,7 +5195,7 @@ snmp_mib_node_FETCH(tp_ref, key)
                     if (SvMAGICAL(mib_hv)) mg = mg_find((SV*)mib_hv, 'P');
                     if (mg) mib_tied_href = (SV*)mg->mg_obj;
                     next_node_href = newRV((SV*)newHV());
-                    __tp_sprint_num_objid(str_buf, tp);
+                    __tp_sprint_num_objid(str_buf, sizeof(str_buf), tp);
                     nn_hrefp = hv_fetch((HV*)SvRV(mib_tied_href),
                                         str_buf, strlen(str_buf), 1);
                     if (!SvROK(*nn_hrefp)) {
@@ -5281,7 +5285,7 @@ snmp_mib_node_FETCH(tp_ref, key)
                  mib_hv = perl_get_hv("SNMP::MIB", FALSE);
                  if (SvMAGICAL(mib_hv)) mg = mg_find((SV*)mib_hv, 'P');
                  if (mg) mib_tied_href = (SV*)mg->mg_obj;
-                 __tp_sprint_num_objid(str_buf, tp);
+                 __tp_sprint_num_objid(str_buf, sizeof(str_buf), tp);
 
                  nn_hrefp = hv_fetch((HV*)SvRV(mib_tied_href),
                                      str_buf, strlen(str_buf), 1);
@@ -5306,7 +5310,7 @@ snmp_mib_node_FETCH(tp_ref, key)
                  break;
 	      case 'o': /* objectID */
                  if (strncmp("objectID", key, strlen(key))) break;
-                 __tp_sprint_num_objid(str_buf, tp);
+                 __tp_sprint_num_objid(str_buf, sizeof(str_buf), tp);
                  sv_setpv(ret,str_buf);
                  break;
 	      case 'p': /* parent */
@@ -5319,11 +5323,11 @@ snmp_mib_node_FETCH(tp_ref, key)
                  mib_hv = perl_get_hv("SNMP::MIB", FALSE);
                  if (SvMAGICAL(mib_hv)) mg = mg_find((SV*)mib_hv, 'P');
                  if (mg) mib_tied_href = (SV*)mg->mg_obj;
-                 next_node_href = newRV((SV*)newHV());
-                 __tp_sprint_num_objid(str_buf, tp);
+                 __tp_sprint_num_objid(str_buf, sizeof(str_buf), tp);
                  nn_hrefp = hv_fetch((HV*)SvRV(mib_tied_href),
                                      str_buf, strlen(str_buf), 1);
                  if (!SvROK(*nn_hrefp)) {
+                 next_node_href = newRV((SV*)newHV());
                  sv_setsv(*nn_hrefp, next_node_href);
                  ENTER ;
                  SAVETMPS ;
