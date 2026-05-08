@@ -1,10 +1,10 @@
 #include <net-snmp/net-snmp-config.h>
 
 #include <stdio.h>
-#if HAVE_DIRENT_H
+#ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -44,8 +44,13 @@ void netsnmp_close_fds(int fd)
         closedir(dir);
     }
 #endif
-    if (largest_fd < 0)
+    if (largest_fd < 0) {
+#ifdef HAVE_GETDTABLESIZE
         largest_fd = getdtablesize() - 1;
+#else
+        largest_fd = sysconf(_SC_OPEN_MAX);
+#endif
+    }
 
     for (i = largest_fd; i > fd && i >= 0; i--)
         close(i);

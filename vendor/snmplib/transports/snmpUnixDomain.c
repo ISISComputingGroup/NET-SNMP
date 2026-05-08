@@ -9,18 +9,18 @@
 #include <ctype.h>
 #include <errno.h>
 
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -149,6 +149,7 @@ netsnmp_unix_recv(netsnmp_transport *t, void *buf, int size,
             if (rc < 0 && errno != EINTR) {
                 DEBUGMSGTL(("netsnmp_unix", "recv fd %d err %d (\"%s\")\n",
                             t->sock, errno, strerror(errno)));
+                free(to);
                 return rc;
             }
             *opaque = (void*)to;
@@ -360,6 +361,7 @@ netsnmp_unix_transport(const struct sockaddr_un *addr, int local)
         t->local_length = strlen(addr->sun_path);
         t->local = strdup(addr->sun_path);
         if (t->local == NULL) {
+            netsnmp_unix_close(t);
             netsnmp_transport_free(t);
             return NULL;
         }

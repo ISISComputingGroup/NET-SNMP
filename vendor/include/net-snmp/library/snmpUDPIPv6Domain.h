@@ -16,8 +16,8 @@ extern          "C" {
 
 #include <net-snmp/library/snmp_transport.h>
 
-config_require(IPv6Base)
-config_require(UDPBase)
+config_require(IPv6Base);
+config_require(UDPBase);
 
 #include <net-snmp/library/snmpIPv6BaseDomain.h>
 
@@ -51,17 +51,6 @@ netsnmp_udp6_transport_with_source(const struct netsnmp_ep *ep, int local,
 
     void
     netsnmp_udp6_transport_get_bound_addr(netsnmp_transport *t);
-
-
-/*
- * Convert a "traditional" peername into a sockaddr_in6 structure which is
- * written to *addr.  Returns 1 if the conversion was successful, or 0 if it
- * failed.
- */
-
-int             netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
-                                     const char *peername,
-                                     int remote_port);
 
 NETSNMP_IMPORT
 void            netsnmp_udp6_agent_config_tokens_register(void);

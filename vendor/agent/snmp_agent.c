@@ -54,26 +54,26 @@ SOFTWARE.
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_SYS_SELECT_H
+#ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #include <errno.h>
@@ -85,7 +85,7 @@ SOFTWARE.
 #include <net-snmp/library/snmp_assert.h>
 #include "agent_global_vars.h"
 
-#if HAVE_SYSLOG_H
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #endif
 
@@ -142,9 +142,10 @@ netsnmp_get_pdu_stats(void)
     return _pdu_stats;
 }
 
-int _pdu_stats_compare(const netsnmp_pdu_stats * lhs,
-                       const netsnmp_pdu_stats * rhs)
+int _pdu_stats_compare(const void *p, const void *q)
 {
+    const netsnmp_pdu_stats *lhs = p, *rhs = q;
+
     if (NULL == lhs || NULL == rhs) {
         snmp_log(LOG_WARNING,
                  "WARNING: results undefined for compares with NULL\n");
@@ -178,7 +179,7 @@ _pdu_stats_init(void) {
         return;
     }
 
-    _pdu_stats->compare = (netsnmp_container_compare*)_pdu_stats_compare;
+    _pdu_stats->compare = _pdu_stats_compare;
     _pdu_stats->get_subset = NULL; /** subsets not supported */
 
     _pdu_stats_max = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
@@ -1042,6 +1043,11 @@ netsnmp_agent_check_packet(netsnmp_session * session,
     char *tcpudpaddr = NULL, *name;
     short not_log_connection;
 
+    /* 'char *' wrapers on 'const char *' STRING_UNKNOWN value for hosts_ctl */
+    char name_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
+    char addr_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
+    char user_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
+
     name = netsnmp_ds_get_string(NETSNMP_DS_LIBRARY_ID,
                                  NETSNMP_DS_LIB_APPTYPE);
 
@@ -1084,7 +1090,7 @@ netsnmp_agent_check_packet(netsnmp_session * session,
         if (xp)
             *xp = '\0';
  
-        if (hosts_ctl(name, STRING_UNKNOWN, sbuf, STRING_UNKNOWN)) {
+        if (hosts_ctl(name, name_unknown, sbuf, user_unknown)) {
             if (!not_log_connection) {
                 snmp_log(allow_severity, "Connection from %s\n", addr_string);
             }
@@ -1101,7 +1107,7 @@ netsnmp_agent_check_packet(netsnmp_session * session,
          */
         if (0 == strncmp(addr_string, "callback", 8))
             ;
-        else if (hosts_ctl(name, STRING_UNKNOWN, STRING_UNKNOWN, STRING_UNKNOWN)){
+        else if (hosts_ctl(name, name_unknown, addr_unknown, user_unknown)){
             if (!not_log_connection) {
                 snmp_log(allow_severity, "Connection from <UNKNOWN> (%s)\n", addr_string);
             };
@@ -1475,16 +1481,16 @@ init_master_agent(void)
 
     if (cptr) {
         buf = strdup(cptr);
-        if (!buf) {
-            snmp_log(LOG_ERR,
-                     "Error processing transport \"%s\"\n", cptr);
-            return 1;
-        }
     } else {
         /*
          * No, so just specify the default port.  
          */
         buf = strdup("");
+    }
+    if (!buf) {
+        snmp_log(LOG_ERR,
+                    "Error processing transport \"%s\"\n", cptr ? cptr : "default");
+        return 1;
     }
 
     DEBUGMSGTL(("snmp_agent", "final port spec: \"%s\"\n", buf));
@@ -2221,6 +2227,8 @@ handle_snmp_packet(int op, netsnmp_session * session, int reqid,
     if (magic == NULL) {
         asp = init_agent_snmp_session(session, pdu);
         status = SNMP_ERR_NOERROR;
+        if (asp == NULL)
+            return 1;
     } else {
         asp = (netsnmp_agent_session *) magic;
         status = asp->status;
@@ -2655,7 +2663,7 @@ netsnmp_create_subtree_cache(netsnmp_agent_session *asp)
              * enough varbinds to fill the packet vs retrieving varbinds
              * that will be discarded to make the response fit the packet size.
              */
-            if (avgvarbind == 0)
+            if (avgvarbind <= 0)
                 avgvarbind = 15;
 
             if (maxresponses > (asp->pdu->msgMaxSize / avgvarbind)) {
@@ -2965,7 +2973,7 @@ netsnmp_check_requests_status(netsnmp_agent_session *asp,
         if (requests->status != SNMP_ERR_NOERROR &&
             (!look_for_specific || requests->status == look_for_specific)
             && (look_for_specific || asp->index == 0
-                || requests->index < asp->index)) {
+                || requests->index <= asp->index)) {
             asp->index = requests->index;
             asp->status = requests->status;
         }
@@ -3719,11 +3727,45 @@ netsnmp_handle_request(netsnmp_agent_session *asp, int status)
     return 1;
 }
 
+#ifndef NETSNMP_NO_WRITE_SUPPORT
+static int
+check_set_pdu_for_null_varbind(netsnmp_agent_session *asp)
+{
+    int i;
+    netsnmp_variable_list *v = NULL;
+
+    for (i = 1, v = asp->pdu->variables; v != NULL; i++, v = v->next_variable) {
+	if (v->type == ASN_NULL) {
+	    /*
+	     * Protect SET implementations that do not protect themselves
+	     * against wrong type.
+	     */
+	    DEBUGMSGTL(("snmp_agent", "disallowing SET with NULL var for varbind %d\n", i));
+	    asp->index = i;
+	    return SNMP_ERR_WRONGTYPE;
+	}
+    }
+    return SNMP_ERR_NOERROR;
+}
+#endif /* NETSNMP_NO_WRITE_SUPPORT */
+
 int
 handle_pdu(netsnmp_agent_session *asp)
 {
     int             status, inclusives = 0;
     netsnmp_variable_list *v = NULL;
+
+#ifndef NETSNMP_NO_WRITE_SUPPORT
+    /*
+     * Check for ASN_NULL in SET request
+     */
+    if (asp->pdu->command == SNMP_MSG_SET) {
+	status = check_set_pdu_for_null_varbind(asp);
+	if (status != SNMP_ERR_NOERROR) {
+	    return status;
+	}
+    }
+#endif /* NETSNMP_NO_WRITE_SUPPORT */
 
     /*
      * for illegal requests, mark all nodes as ASN_NULL 
@@ -3768,7 +3810,9 @@ handle_pdu(netsnmp_agent_session *asp)
     case SNMP_MSG_INTERNAL_SET_RESERVE1:
 #endif /* NETSNMP_NO_WRITE_SUPPORT */
         asp->vbcount = count_varbinds(asp->pdu->variables);
-        asp->requests = calloc(asp->vbcount, sizeof(netsnmp_request_info));
+        asp->requests =
+            calloc(asp->vbcount ? asp->vbcount : 1,
+                   sizeof(netsnmp_request_info));
         /*
          * collect varbinds 
          */

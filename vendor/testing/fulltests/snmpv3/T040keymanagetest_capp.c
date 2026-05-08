@@ -31,7 +31,7 @@
 #include <netinet/in.h>
 #endif
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <ctype.h>
@@ -110,7 +110,7 @@ int
 main(int argc, char **argv)
 {
     int             rval = SNMPERR_SUCCESS, failcount = 0;
-    char            ch;
+    int             ch;
 
     local_progname = argv[0];
     optarg = NULL;

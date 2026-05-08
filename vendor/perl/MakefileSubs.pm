@@ -41,6 +41,7 @@ sub NetSNMPGetOpts {
 	$ret{'define'}   = $ENV{'NET-SNMP-DEFINE'};
 	$ret{'inc'}      = $ENV{'NET-SNMP-INC'};
 	$ret{'cflags'}   = $ENV{'NET-SNMP-CFLAGS'};
+	# $ret{'prefix'} is not used on Windows.
     } else {
 	# don't have env vars, pull from command line and put there
 	GetOptions("NET-SNMP-CONFIG=s"    => \$ret{'nsconfig'},
@@ -113,8 +114,17 @@ sub AddCommonParams {
 	my $cflags = `$opts->{'nsconfig'} --cflags` or
 	    die "net-snmp-config failed\n";
 	chomp($cflags);
+	# Remove -Wimplicit-fallthrough and -Wcast-function-type since these are
+	# not supported by older versions of gcc.
+	$cflags =~ s/-Wimplicit-fallthrough=*[0-9]*//g;
+	$cflags =~ s/-Wcast-function-type//g;
+	# Remove -Wmaybe-uninitialized because there are multiple unused
+	# variables in the .xs files.
+	$cflags =~ s/-Wmaybe-uninitialized//g;
 	append($Params->{'CCFLAGS'}, $cflags);
 	append($Params->{'CCFLAGS'}, $Config{'ccflags'});
+	# Suppress warnings about old-style function definitions.
+	append($Params->{'CCFLAGS'}, '-Wno-old-style-definition');
 	# Suppress known Perl header shortcomings.
 	$Params->{'CCFLAGS'} =~ s/ -W(cast-qual|write-strings)//g;
 	append($Params->{'CCFLAGS'}, '-Wformat');

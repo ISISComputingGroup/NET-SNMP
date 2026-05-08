@@ -25,70 +25,70 @@ SOFTWARE.
 ******************************************************************/
 #include <net-snmp/net-snmp-config.h>
 
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <sys/types.h>
-#if HAVE_SYS_WAIT_H
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#if HAVE_SYS_SOCKIO_H
+#ifdef HAVE_SYS_SOCKIO_H
 #include <sys/sockio.h>
 #endif
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #include <stdio.h>
 #if !defined(mingw32) && defined(HAVE_SYS_TIME_H)
 # include <sys/time.h>
-# if TIME_WITH_SYS_TIME
+# ifdef TIME_WITH_SYS_TIME
 #  include <time.h>
 # endif
 #else
 # include <time.h>
 #endif
-#if HAVE_SYS_SELECT_H
+#ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
-#if HAVE_SYS_PARAM_H
+#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
-#if HAVE_SYSLOG_H
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #endif
-#if HAVE_SYS_IOCTL_H
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
-#if HAVE_NET_IF_H
+#ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#if HAVE_FCNTL_H
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
-#if HAVE_PROCESS_H              /* Win32-getpid */
+#ifdef HAVE_PROCESS_H
 #include <process.h>
 #endif
-#if HAVE_PWD_H
+#ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
-#if HAVE_GRP_H
+#ifdef HAVE_GRP_H
 #include <grp.h>
 #endif
 #include <signal.h>
@@ -98,6 +98,7 @@ SOFTWARE.
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/library/fd_event_manager.h>
 #include <net-snmp/agent/netsnmp_close_fds.h>
+#include <net-snmp/agent/mib_modules.h>
 #include "../snmplib/snmp_syslog.h"
 #include "../agent_global_vars.h"
 #include "../agent/mibgroup/snmpv3/snmpEngine.h"
@@ -127,7 +128,7 @@ SOFTWARE.
 
 #endif
 
-#if NETSNMP_USE_LIBWRAP
+#ifdef NETSNMP_USE_LIBWRAP
 #include <tcpd.h>
 #endif
 
@@ -145,7 +146,7 @@ char           *logfile = NULL;
 static int      reconfig = 0;
 char            ddefault_port[] = "udp:162";	/* Default default port */
 char           *default_port = ddefault_port;
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
     FILE           *PID;
     char           *pid_file = NULL;
 #endif
@@ -201,7 +202,7 @@ usage(void)
     fprintf(stderr, "  -f\t\t\tdo not fork from the shell\n");
     fprintf(stderr,
             "  -F FORMAT\t\tuse specified format for logging to standard error\n");
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
     fprintf(stderr, "  -g GID\t\tchange to this numeric gid after opening\n"
 	   "\t\t\t  transport endpoints\n");
 #endif
@@ -214,7 +215,7 @@ usage(void)
             "  -M DIRLIST\t\tuse DIRLIST as the list of locations\n\t\t\t  to look for MIBs\n");
     fprintf(stderr,
             "  -n\t\t\tuse numeric addresses instead of attempting\n\t\t\t  hostname lookups (no DNS)\n");
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
     fprintf(stderr, "  -p FILE\t\tstore process id in FILE\n");
 #endif
 #ifdef WIN32SERVICE
@@ -224,7 +225,7 @@ usage(void)
     fprintf(stderr, "  \t\t\t  Note that some parameters are not relevant when running as a service\n");
 #endif
     fprintf(stderr, "  -t\t\t\tPrevent traps from being logged to syslog\n");
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
     fprintf(stderr, "  -u UID\t\tchange to this uid (numeric or textual) after\n"
 	   "\t\t\t  opening transport endpoints\n");
 #endif
@@ -281,8 +282,13 @@ static int
 pre_parse(netsnmp_session * session, netsnmp_transport *transport,
           void *transport_data, int transport_data_length)
 {
-#if NETSNMP_USE_LIBWRAP
+#ifdef NETSNMP_USE_LIBWRAP
     char *addr_string = NULL;
+    /* 'char *' wrapers on 'const char *' STRING_UNKNOWN value for hosts_ctl */
+    char name[sizeof("snmptrapd")] = "snmptrapd";
+    char name_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
+    char addr_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
+    char user_unknown[sizeof(STRING_UNKNOWN)] = STRING_UNKNOWN;
 
     if (transport != NULL && transport->f_fmtaddr != NULL) {
         /*
@@ -307,8 +313,7 @@ pre_parse(netsnmp_session * session, netsnmp_transport *transport,
         if (xp)
             *xp = '\0';
 
-        if (hosts_ctl("snmptrapd", STRING_UNKNOWN, 
-		      sbuf, STRING_UNKNOWN) == 0) {
+        if (hosts_ctl(name, name_unknown, sbuf, user_unknown) == 0) {
             DEBUGMSGTL(("snmptrapd:libwrap", "%s rejected", addr_string));
             SNMP_FREE(addr_string);
             return 0;
@@ -316,8 +321,7 @@ pre_parse(netsnmp_session * session, netsnmp_transport *transport,
       }
       SNMP_FREE(addr_string);
     } else {
-        if (hosts_ctl("snmptrapd", STRING_UNKNOWN,
-                      STRING_UNKNOWN, STRING_UNKNOWN) == 0) {
+        if (hosts_ctl(name, name_unknown, addr_unknown, user_unknown) == 0) {
             DEBUGMSGTL(("snmptrapd:libwrap", "[unknown] rejected"));
             return 0;
         }
@@ -370,11 +374,12 @@ parse_trapd_address(const char *token, char *cptr)
     if (default_port == ddefault_port) {
         default_port = strdup(buf);
     } else {
-        p = malloc(strlen(buf) + 1 + strlen(default_port) + 1);
+        size_t len = strlen(buf) + 1 + strlen(default_port) + 1;
+        p = malloc(len);
         if (p) {
-            strcpy(p, buf);
-            strcat(p, ",");
-            strcat(p, default_port );
+            strlcpy(p, buf, len);
+            strlcat(p, ",", len);
+            strlcat(p, default_port, len);
         }
         free(default_port);
         default_port = p;
@@ -541,14 +546,13 @@ main(int argc, char *argv[])
 #endif
 {
     static const char options[] = "aAc:CdD::efF:g:hHI:L:m:M:no:O:Ptu:vx:X-:"
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
         "p:"
 #endif
         ;
     netsnmp_session *sess_list = NULL, *ss = NULL;
     netsnmp_transport *transport = NULL;
     int             arg, i = 0;
-    int             uid = 0, gid = 0;
     int             exit_code = 1;
     char           *cp, *listen_ports = NULL;
 #if defined(USING_AGENTX_SUBAGENT_MODULE) && !defined(NETSNMP_SNMPTRAPD_DISABLE_AGENTX)
@@ -602,7 +606,7 @@ main(int argc, char *argv[])
 
     register_config_handler("snmptrapd", "doNotLogTraps",
                             parse_config_doNotLogTraps, NULL, "(1|yes|true|0|no|false)");
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
     register_config_handler("snmptrapd", "pidFile",
                             parse_config_pidFile, NULL, "string");
 #endif
@@ -702,7 +706,7 @@ main(int argc, char *argv[])
                 } else {
                     /* Old style: implicitly "print=format" */
                     trap1_fmt_str_remember = malloc(strlen(optarg) + 7);
-                    sprintf( trap1_fmt_str_remember, "print %s", optarg );
+                    snprintf( trap1_fmt_str_remember, strlen(optarg) + 7, "print %s", optarg );
                 }
             } else {
                 usage();
@@ -710,10 +714,29 @@ main(int argc, char *argv[])
             }
             break;
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
         case 'g':
             if (optarg != NULL) {
-                gid = atoi(optarg);
+                int gid;
+                char *ecp;
+
+                gid = strtoul(optarg, &ecp, 10);
+#if defined(HAVE_GETGRNAM) && defined(HAVE_PWD_H)
+                if (*ecp) {
+                    struct group  *info;
+
+                    info = getgrnam(optarg);
+                    if (info)
+                        gid = info->gr_gid;
+                    else
+                        gid = -1;
+                    endgrent();
+                }
+#endif
+                if (gid < 0) {
+                    fprintf(stderr, "Bad group id: %s\n", optarg);
+                    goto out;
+                }
                 netsnmp_set_agent_group_id(gid);
             } else {
                 usage();
@@ -799,7 +822,7 @@ main(int argc, char *argv[])
             }
             break;
 
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
         case 'p':
             if (optarg != NULL) {
                 parse_config_pidFile(NULL, optarg);
@@ -824,18 +847,22 @@ main(int argc, char *argv[])
             SyslogTrap++;
             break;
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
         case 'u':
             if (optarg != NULL) {
+                int             uid;
                 char           *ecp;
 
                 uid = strtoul(optarg, &ecp, 10);
-#if HAVE_GETPWNAM && HAVE_PWD_H
+#if defined(HAVE_GETPWNAM) && defined(HAVE_PWD_H)
                 if (*ecp) {
                     struct passwd  *info;
 
                     info = getpwnam(optarg);
-                    uid = info ? info->pw_uid : -1;
+                    if (info)
+                        uid = info->pw_uid;
+                    else
+                        uid = -1;
                     endpwent();
                 }
 #endif
@@ -887,12 +914,13 @@ main(int argc, char *argv[])
         for (i = optind; i < argc; i++) {
             char *astring;
             if (listen_ports != NULL) {
-                astring = malloc(strlen(listen_ports) + 2 + strlen(argv[i]));
+                size_t len = strlen(listen_ports) + 2 + strlen(argv[i]);
+                astring = malloc(len);
                 if (astring == NULL) {
                     fprintf(stderr, "malloc failure processing argv[%d]\n", i);
                     goto out;
                 }
-                sprintf(astring, "%s,%s", listen_ports, argv[i]);
+                snprintf(astring, len, "%s,%s", listen_ports, argv[i]);
                 free(listen_ports);
                 listen_ports = astring;
             } else {
@@ -1124,7 +1152,7 @@ main(int argc, char *argv[])
     if (dofork && netsnmp_running) {
         int             fd;
 
-#if HAVE_FORKALL
+#ifdef HAVE_FORKALL
         switch (forkall()) {
 #else
         switch (fork()) {
@@ -1159,7 +1187,7 @@ main(int argc, char *argv[])
         }
     }
 #endif                          /* WIN32 */
-#if HAVE_GETPID
+#ifdef HAVE_GETPID
     if (pid_file != NULL) {
         if ((PID = fopen(pid_file, "w")) == NULL) {
             snmp_log_perror("fopen");
@@ -1178,8 +1206,11 @@ main(int argc, char *argv[])
      */
     reconfig = 0;
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #ifdef HAVE_SETGID
+    {
+    int gid;
+
     if ((gid = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
 				  NETSNMP_DS_AGENT_GROUPID)) > 0) {
         DEBUGMSGTL(("snmptrapd/main", "Changing gid to %d.\n", gid));
@@ -1195,8 +1226,12 @@ main(int argc, char *argv[])
             }
         }
     }
+    }
 #endif
 #ifdef HAVE_SETUID
+    {
+    int uid;
+
     if ((uid = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
 				  NETSNMP_DS_AGENT_USERID)) > 0) {
         DEBUGMSGTL(("snmptrapd/main", "Changing uid to %d.\n", uid));
@@ -1207,6 +1242,7 @@ main(int argc, char *argv[])
                 goto sock_cleanup;
             }
         }
+    }
     }
 #endif
 #endif
@@ -1233,12 +1269,18 @@ main(int argc, char *argv[])
     if (snmp_get_do_logging()) {
         struct tm      *tm;
         time_t          timer;
+
         time(&timer);
         tm = localtime(&timer);
-        snmp_log(LOG_INFO,
+        if (tm) {
+            snmp_log(LOG_INFO,
                 "%.4d-%.2d-%.2d %.2d:%.2d:%.2d NET-SNMP version %s Stopped.\n",
                  tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour,
                  tm->tm_min, tm->tm_sec, netsnmp_get_version());
+        } else {
+            snmp_log(LOG_INFO, "NET-SNMP version %s Stopped.\n",
+                     netsnmp_get_version());
+        }
     }
     snmp_log(LOG_INFO, "Stopping snmptrapd\n");
     

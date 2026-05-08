@@ -1219,7 +1219,7 @@ _mfd_ipIfStatsTable_get_values(netsnmp_mib_handler *handler,
 
         /*
          * if the buffer wasn't used previously for the old data (i.e. it
-         * was allcoated memory)  and the get routine replaced the pointer,
+         * was allocated memory)  and the get routine replaced the pointer,
          * we need to free the previous pointer.
          */
         if (old_string && (old_string != requests->requestvb->buf) &&
@@ -1298,7 +1298,7 @@ _cache_free(netsnmp_cache * cache, void *magic)
  * @internal
  */
 static void
-_container_item_free(ipIfStatsTable_rowreq_ctx * rowreq_ctx, void *context)
+_container_item_free(void *rowreq_ctx, void *context)
 {
     DEBUGMSGTL(("internal:ipIfStatsTable:_container_item_free",
                 "called\n"));
@@ -1331,9 +1331,7 @@ _container_free(netsnmp_container * container)
     /*
      * free all items. inefficient, but easy.
      */
-    CONTAINER_CLEAR(container,
-                    (netsnmp_container_obj_func *) _container_item_free,
-                    NULL);
+    CONTAINER_CLEAR(container, _container_item_free, NULL);
 }                               /* _container_free */
 
 /**

@@ -23,33 +23,35 @@
 #undef PACKAGE_STRING
 #undef PACKAGE_TARNAME
 #undef PACKAGE_VERSION
+#if !defined(HAVE_MYSQL_INIT)
 #ifdef HAVE_MY_GLOBAL_H
 #include <my_global.h>
 #endif
 #ifdef HAVE_MY_SYS_H
 #include <my_sys.h>
 #endif
+#endif
 #include <mysql.h>
 #include <errmsg.h>
 
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <stdio.h>
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <ctype.h>
 #include <sys/types.h>
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
 
@@ -199,7 +201,7 @@ typedef struct sql_buf_t {
  * static bind structures, plus 2 static buffers to bind to.
  */
 static MYSQL_BIND _tbind[TBIND_MAX], _vbind[VBIND_MAX];
-static char       _no_v3;
+static typeof(*((MYSQL_BIND*)NULL)->is_null) _no_v3;
 
 static void _sql_process_queue(u_int dontcare, void *meeither);
 
@@ -454,7 +456,7 @@ netsnmp_mysql_init(void)
     char **not_argv = not_args;
 
     /** load .my.cnf values */
-#if HAVE_MY_LOAD_DEFAULTS
+#ifdef HAVE_MY_LOAD_DEFAULTS
     my_load_defaults ("my", _sql.groups, &not_argc, &not_argv, 0);
 #elif defined(HAVE_LOAD_DEFAULTS)
     load_defaults ("my", _sql.groups, &not_argc, &not_argv);
@@ -561,7 +563,7 @@ netsnmp_mysql_init(void)
         return -1;
     }
 
-#if HAVE_MYSQL_OPTIONS
+#ifdef HAVE_MYSQL_OPTIONS
     mysql_options(_sql.conn, MYSQL_READ_DEFAULT_GROUP, "snmptrapd");
 #endif
 
@@ -593,8 +595,9 @@ netsnmp_mysql_init(void)
  * to CONTAINER_FOR_EACH.
  */
 static void
-_sql_log(sql_buf *sqlb, void* dontcare)
+_sql_log(void *p, void *dontcare)
 {
+    sql_buf              *sqlb = p;
     netsnmp_iterator     *it;
     sql_vb_buf           *sqlvb;
 
@@ -653,8 +656,10 @@ _sql_log(sql_buf *sqlb, void* dontcare)
  * to CONTAINER_FOR_EACH.
  */
 static void
-_sql_vb_buf_free(sql_vb_buf *sqlvb, void* dontcare)
+_sql_vb_buf_free(void *p, void *dontcare)
 {
+    sql_vb_buf *sqlvb = p;
+
     if (NULL == sqlvb)
         return;
 
@@ -670,15 +675,16 @@ _sql_vb_buf_free(sql_vb_buf *sqlvb, void* dontcare)
  * to CONTAINER_FOR_EACH.
  */
 static void
-_sql_buf_free(sql_buf *sqlb, void* dontcare)
+_sql_buf_free(void *p, void* dontcare)
 {
+    sql_buf *sqlb = p;
+
     if (NULL == sqlb)
         return;
 
     /** do varbinds first */
     if (sqlb->varbinds) {
-        CONTAINER_CLEAR(sqlb->varbinds,
-                        (netsnmp_container_obj_func*)_sql_vb_buf_free, NULL);
+        CONTAINER_CLEAR(sqlb->varbinds, _sql_vb_buf_free, NULL);
         CONTAINER_FREE(sqlb->varbinds);
     }
 
@@ -744,14 +750,16 @@ _sql_save_trap_info(sql_buf *sqlb, netsnmp_pdu  *pdu,
     /** time */
     (void) time(&now);
     cur_time = localtime(&now);
-    sqlb->time.year = cur_time->tm_year + 1900;
-    sqlb->time.month = cur_time->tm_mon + 1;
-    sqlb->time.day = cur_time->tm_mday;
-    sqlb->time.hour = cur_time->tm_hour;
-    sqlb->time.minute = cur_time->tm_min;
-    sqlb->time.second = cur_time->tm_sec;
-    sqlb->time.second_part = 0;
-    sqlb->time.neg = 0;
+    if (cur_time) {
+        sqlb->time.year = cur_time->tm_year + 1900;
+        sqlb->time.month = cur_time->tm_mon + 1;
+        sqlb->time.day = cur_time->tm_mday;
+        sqlb->time.hour = cur_time->tm_hour;
+        sqlb->time.minute = cur_time->tm_min;
+        sqlb->time.second = cur_time->tm_sec;
+        sqlb->time.second_part = 0;
+        sqlb->time.neg = 0;
+    }
 
     /** host name */
     buf_host_len_t = 0;
@@ -974,8 +982,9 @@ mysql_handler(netsnmp_pdu           *pdu,
  * save a buffered trap to sql database
  */
 static void
-_sql_save(sql_buf *sqlb, void *dontcare)
+_sql_save(void *p, void *dontcare)
 {
+    sql_buf              *sqlb = p;
     netsnmp_iterator     *it;
     sql_vb_buf           *sqlvb;
     u_long                trap_id;
@@ -1103,7 +1112,7 @@ _sql_save(sql_buf *sqlb, void *dontcare)
 static void
 _sql_process_queue(u_int dontcare, void *meeither)
 {
-    int        rc;
+    int        sql_has_connected, rc;
 
     /** bail if the queue is empty */
     if( 0 == CONTAINER_SIZE(_sql.queue))
@@ -1121,21 +1130,21 @@ _sql_process_queue(u_int dontcare, void *meeither)
         (void) netsnmp_mysql_connect();
     }
 
-    CONTAINER_FOR_EACH(_sql.queue, (netsnmp_container_obj_func*)_sql_save,
-                       NULL);
+    sql_has_connected = _sql.connected;
+
+    CONTAINER_FOR_EACH(_sql.queue, _sql_save, NULL);
 
     if (_sql.connected) {
         rc = mysql_commit(_sql.conn);
         if (rc) { /* nuts... now what? */
             netsnmp_sql_error("commit failed");
-            CONTAINER_FOR_EACH(_sql.queue,
-                               (netsnmp_container_obj_func*)_sql_log,
-                               NULL);
+            CONTAINER_FOR_EACH(_sql.queue, _sql_log, NULL);
         }
     }
 
-    CONTAINER_CLEAR(_sql.queue, (netsnmp_container_obj_func*)_sql_buf_free,
-                    NULL);
+    if (!sql_has_connected || _sql.connected) {
+        CONTAINER_CLEAR(_sql.queue, _sql_buf_free, NULL);
+    }
 }
 
 #else

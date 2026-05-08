@@ -661,7 +661,7 @@ _mfd_ipv6InterfaceTable_get_values(netsnmp_mib_handler *handler,
 
         /*
          * if the buffer wasn't used previously for the old data (i.e. it
-         * was allcoated memory)  and the get routine replaced the pointer,
+         * was allocated memory)  and the get routine replaced the pointer,
          * we need to free the previous pointer.
          */
         if (old_string && (old_string != requests->requestvb->buf) &&
@@ -1129,7 +1129,7 @@ _mfd_ipv6InterfaceTable_commit(netsnmp_mib_handler *handler,
 
     if (rowreq_ctx->rowreq_flags & MFD_ROW_DIRTY) {
         /*
-         * if we successfully commited this row, set the dirty flag. Use the
+         * if we successfully committed this row, set the dirty flag. Use the
          * current value + 1 (i.e. dirty = # rows changed).
          * this is checked in post_request...
          */

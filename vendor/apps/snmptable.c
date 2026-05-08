@@ -27,39 +27,39 @@ SOFTWARE.
 ******************************************************************/
 #include <net-snmp/net-snmp-config.h>
 
-#if HAVE_STDLIB_H
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
 #endif
 #include <sys/types.h>
-#if HAVE_NETINET_IN_H
+#ifdef HAVE_NETINET_IN_H
 # include <netinet/in.h>
 #endif
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
-#if HAVE_SYS_SELECT_H
+#ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
 #include <stdio.h>
-#if HAVE_NETDB_H
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#if HAVE_ARPA_INET_H
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
 
@@ -363,6 +363,7 @@ close_session:
     snmp_close(ss);
 
 out:
+    netsnmp_cleanup_session(&session);
     SOCK_CLEANUP;
     return exitval;
 }
@@ -381,24 +382,26 @@ print_table(void)
 
     for (field = 0; field < fields; field++) {
         if (column_width != 0)
-            sprintf(string_buf, "%%%s%d.%ds", left_justify_flag,
-                    column_width + 1, column_width );
+            snprintf(string_buf, sizeof string_buf, "%%%s%d.%ds",
+                     left_justify_flag, column_width + 1, column_width );
         else if (field_separator == NULL)
-            sprintf(string_buf, "%%%s%ds", left_justify_flag,
-                    column[field].width + 1);
+            snprintf(string_buf, sizeof string_buf, "%%%s%ds",
+                     left_justify_flag, column[field].width + 1);
         else if (field == 0 && !show_index)
-            sprintf(string_buf, "%%s");
+            snprintf(string_buf, sizeof string_buf, "%%s");
         else
-            sprintf(string_buf, "%s%%s", field_separator);
+            snprintf(string_buf, sizeof string_buf, "%s%%s",
+                     field_separator);
         column[field].fmt = strdup(string_buf);
     }
     if (show_index) {
         if (column_width)
-            sprintf(string_buf, "\nindex: %%s\n");
+            snprintf(string_buf, sizeof string_buf, "\nindex: %%s\n");
         else if (field_separator == NULL)
-            sprintf(string_buf, "%%%s%ds", left_justify_flag, index_width);
+            snprintf(string_buf, sizeof string_buf, "%%%s%ds",
+                     left_justify_flag, index_width);
         else
-            sprintf(string_buf, "%%s");
+            snprintf(string_buf, sizeof string_buf, "%%s");
         index_fmt = strdup(string_buf);
     }
 
@@ -755,7 +758,6 @@ get_table_entries(netsnmp_session * ss)
                     if (dp[col]) {
                         fprintf(stderr, "OID not increasing: %s\n", buf);
                         running = 0;
-                        vars = NULL;
                         end_of_table = 1;
                         exitval = 2;
                         break;
